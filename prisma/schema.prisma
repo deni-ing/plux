@@ -1,0 +1,353 @@
+// Plux — schema
+// נגזר מניתוח נתונים אמיתיים: 223 תנועות מ-MAX (5 חודשים) ו-169 תנועות מדף חשבון לאומי.
+// כל הערות ה-<< >> מסמנות החלטה שנבעה ישירות ממשהו שנמצא בקבצים.
+
+// Prisma 7: הלקוח נוצר לתיקייה מפורשת ולא ל-node_modules,
+// וכתובות החיבור עברו ל-prisma.config.ts.
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────── משתמש וחשבונות ───────────────────────────
+
+model User {
+  id          String   @id                 // מזהה Clerk. אין ת.ז. ואין שם מלא מהקובץ.
+  email       String   @unique
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accounts      Account[]
+  transactions  Transaction[]
+  categories    Category[]
+  rules         CategoryRule[]
+  subscriptions Subscription[]
+  budgets       Budget[]
+  goals         SavingsGoal[]
+  imports       ImportJob[]
+  snapshots     AnalyticsSnapshot[]
+
+  @@map("users")
+}
+
+enum Provider {
+  LEUMI
+  MAX
+  OTHER
+}
+
+enum AccountType {
+  BANK
+  CREDIT_CARD
+}
+
+model Account {
+  id       String      @id @default(uuid())
+  userId   String
+  provider Provider
+  type     AccountType
+
+  label String  // "max בהצדעה" / "עו״ש לאומי"
+  last4 String? // << מ-MAX: עמודת 4 ספרות אחרונות
+
+  // << לעולם לא נשמר מספר חשבון מלא. רק 4 ספרות אחרונות לזיהוי ויזואלי.
+  accountLast4 String?
+
+  currency String @default("ILS")
+
+  // << רק לאומי מספקת יתרה מצטברת. ב-MAX זה תמיד null.
+  balance   Decimal?  @db.Decimal(14, 2)
+  balanceAt DateTime?
+
+  // << מחזור החיוב של MAX: מה-9 בחודש הקודם עד ה-8, וחיוב ב-10.
+  billingCycleDay Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+  subscriptions Subscription[]
+
+  @@unique([userId, provider, label])
+  @@index([userId])
+  @@map("accounts")
+}
+
+// ─────────────────────────── תנועות ───────────────────────────
+
+enum TxnDirection {
+  DEBIT // כסף יוצא
+  CREDIT // כסף נכנס
+}
+
+enum TxnStatus {
+  SETTLED // "עסקאות במועד החיוב" / שורה בדף חשבון
+  PENDING // << "עסקאות שאושרו וטרם נקלטו" — סכום החיוב ריק, נלקח מהסכום המקורי
+}
+
+enum TxnKind {
+  PURCHASE
+  INCOME
+  FEE // << לאומי: "עמל.ערוץ יש 11"
+  REFUND // << לאומי: "החזר לאומי"
+  TRANSFER_IN // << "הפועלים-ביט", "העברה דיגיטל" נכנסת
+  TRANSFER_OUT // << "העברה ב BIT", "תשלום מיידי"
+  STANDING_ORDER // << הערה "הוראת קבע"
+  CARD_SETTLEMENT // << קריטי: "מקס איט פיננ-י" בלאומי = חיוב מרוכז של MAX
+  OTHER
+}
+
+enum CategorySource {
+  PROVIDER // הקטגוריה שהגיעה מהספק
+  RULE // כלל התאמה פנימי
+  AI // מודל שפה
+  USER // תיקון ידני — גובר על הכל
+}
+
+model Transaction {
+  id          String  @id @default(uuid())
+  userId      String
+  accountId   String
+  importJobId String?
+
+  bookedAt  DateTime  @db.Date // תאריך עסקה
+  chargedAt DateTime? @db.Date // << תאריך חיוב. בגיליון חו״ל שונה בכל שורה, ברגיל אחיד.
+
+  // << סכום חתום: שלילי = כסף יוצא. לאומי מפרידה זכות/חובה, MAX מחזירה חיובי — מאוחד כאן.
+  amount   Decimal @db.Decimal(14, 2)
+  currency String  @default("ILS")
+
+  // << עסקאות חו״ל. שים לב: נמצאה שורה עם סכום מקורי ומטבע ריק (NOK) — לכן nullable.
+  originalAmount   Decimal? @db.Decimal(14, 2)
+  originalCurrency String?
+  fxRate           Decimal? @db.Decimal(12, 6)
+
+  merchantRaw String // בדיוק כפי שהופיע בקובץ
+  merchant    String // << מנורמל: פיצול על 2+ רווחים. בלי זה APPLE.COM/BILL לא יזוהה כמנוי.
+  descriptor  String? // << הבלוק השני מהשם: "ITUNES.COM    IE"
+
+  providerCategory String? // << הקטגוריה של MAX — נשמרת גולמית ולעולם לא נדרסת
+  categoryId       String?
+  categorySource   CategorySource @default(RULE)
+
+  kind      TxnKind      @default(PURCHASE)
+  direction TxnDirection
+  status    TxnStatus    @default(SETTLED)
+
+  cardLast4 String?
+  txnType   String? // "רגילה" / "חיוב עסקות מיידי"
+  channel   String? // "אינטרנט" / "טלפוני" / "תשלום בנייד"
+  note      String? // << עמודת הערות. מכילה "הוראת קבע" ו-"למי: <שם>".
+
+  // << היתרה המצטברת מלאומי. משמשת לאימות הייבוא: הפרש היתרות חייב להתאים לסכום.
+  balanceAfter Decimal? @db.Decimal(14, 2)
+
+  // << לא נכלל באנליטיקת הוצאות: העברות P2P, וחיובי CARD_SETTLEMENT שמונים פעמיים.
+  countsAsSpending Boolean @default(true)
+
+  // << ה-hash בנוי רק משדות שיציבים במעבר ממתין→נקלט:
+  //    bookedAt + merchantRaw + originalAmount + originalCurrency + cardLast4.
+  //    בלי סכום חיוב, בלי סטטוס, בלי תאריך חיוב.
+  dedupHash String
+
+  // << אומת בנתונים: אותו בית עסק, אותו סכום, אותו יום — עד 5 פעמים (מכונת שתייה).
+  //    כל אחת מהן היא עסקה אמיתית ואסור לאבד אותן.
+  occurrence Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account    Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  importJob  ImportJob?    @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  subscriptionId String?
+
+  @@unique([userId, dedupHash, occurrence])
+  @@index([userId, bookedAt])
+  @@index([userId, categoryId, bookedAt])
+  @@index([userId, merchant])
+  @@index([accountId, bookedAt])
+  @@map("transactions")
+}
+
+// ─────────────────────────── סיווג ───────────────────────────
+
+model Category {
+  id       String  @id @default(uuid())
+  userId   String
+  name     String
+  icon     String?
+  color    String?
+  isSystem Boolean @default(false)
+  sortKey  Int     @default(0)
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  rules        CategoryRule[]
+  budgets      Budget[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("categories")
+}
+
+model CategoryRule {
+  id         String @id @default(uuid())
+  userId     String
+  categoryId String
+
+  // << התאמה על merchant המנורמל, לא על הגולמי
+  pattern String
+  isRegex Boolean @default(false)
+
+  // << כלל שנוצר מתיקון של המשתמש מקבל עדיפות על כלל מערכת
+  priority  Int      @default(100)
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pattern])
+  @@index([userId])
+  @@map("category_rules")
+}
+
+// ─────────────────────────── מנויים ותקציב ───────────────────────────
+
+enum SubscriptionState {
+  ACTIVE
+  UNUSED // לא זוהה שימוש לאורך זמן
+  CANCELLED
+}
+
+model Subscription {
+  id        String @id @default(uuid())
+  userId    String
+  accountId String
+
+  merchant       String
+  amount         Decimal @db.Decimal(14, 2)
+  currency       String  @default("ILS")
+  intervalDays   Int     @default(30)
+  confidence     Decimal @db.Decimal(4, 3) // כמה בטוח הזיהוי
+
+  // << "הוראת קבע" בעמודת ההערות = אישור ישיר, לא ניחוש סטטיסטי
+  declaredByProvider Boolean @default(false)
+
+  state       SubscriptionState @default(ACTIVE)
+  firstSeenAt DateTime          @db.Date
+  lastSeenAt  DateTime          @db.Date
+  nextDueAt   DateTime?         @db.Date
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, merchant, amount])
+  @@index([userId, state])
+  @@map("subscriptions")
+}
+
+model Budget {
+  id         String  @id @default(uuid())
+  userId     String
+  categoryId String
+  monthlyCap Decimal @db.Decimal(14, 2)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@map("budgets")
+}
+
+model SavingsGoal {
+  id       String   @id @default(uuid())
+  userId   String
+  name     String
+  target   Decimal  @db.Decimal(14, 2)
+  saved    Decimal  @default(0) @db.Decimal(14, 2)
+  targetAt DateTime @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("savings_goals")
+}
+
+// ─────────────────────────── ייבוא ואנליטיקה ───────────────────────────
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SourceFormat {
+  MAX_XLSX
+  LEUMI_PDF
+  LEUMI_XLSX
+  UNKNOWN
+}
+
+model ImportJob {
+  id     String @id @default(uuid())
+  userId String
+
+  storagePath String // הקובץ הגולמי ב-Supabase Storage — מאפשר הרצה מחדש
+  fileName    String
+  format      SourceFormat @default(UNKNOWN)
+
+  // << מהמטא-דאטה בראש הקובץ: "09/2026". שורה 1 (שם + ת.ז.) לא נשמרת בשום מקום.
+  statementPeriod String?
+
+  status ImportStatus @default(PENDING)
+  error  String?
+
+  rowsParsed    Int @default(0)
+  rowsInserted  Int @default(0)
+  rowsDuplicate Int @default(0)
+
+  // << אימות: הפרשי היתרה בדף חשבון לאומי חייבים להתאים לסכומים. 168/168 עברו.
+  reconciled Boolean?
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId, startedAt])
+  @@map("import_jobs")
+}
+
+model AnalyticsSnapshot {
+  id     String @id @default(uuid())
+  userId String
+
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  // תוצאות המנוע הדטרמיניסטי. זה מה שנשלח ל-AI — לא התנועות הגולמיות.
+  facts Json
+
+  computedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart, periodEnd])
+  @@index([userId, computedAt])
+  @@map("analytics_snapshots")
+}

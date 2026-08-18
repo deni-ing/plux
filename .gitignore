@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma — הלקוח נוצר אוטומטית ואינו נשמר ב-repo
+/lib/generated

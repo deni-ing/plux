@@ -42,3 +42,5 @@ next-env.d.ts
 
 # prisma — הלקוח נוצר אוטומטית ואינו נשמר ב-repo
 /lib/generated
+
+!.env.template

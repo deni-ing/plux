@@ -64,13 +64,20 @@ const FILES: [string, string][] = [
   ["prisma/schema.prisma", ""],
   ["lib/db/client.ts", ""],
   ["lib/db/session.ts", "הגשר בין Clerk למסד"],
+  ["lib/parsers/types.ts", ""],
   ["lib/parsers/xlsx.ts", ""],
   ["lib/parsers/max.ts", ""],
+  ["lib/parsers/leumi.ts", ""],
+  ["lib/parsers/pdf-text.ts", "הקובץ היחיד שתלוי בספריית PDF"],
+  ["lib/parsers/index.ts", "הממשק המשותף וזיהוי הפורמט"],
+  ["lib/import/ingest.ts", "כתיבת תוצאות הפענוח למסד"],
   ["app/layout.tsx", ""],
   ["app/sign-in/[[...sign-in]]/page.tsx", ""],
   ["app/sign-up/[[...sign-up]]/page.tsx", ""],
   ["scripts/rls-check.mts", ""],
   ["scripts/parse-check.mts", ""],
+  ["scripts/leumi-check.mts", ""],
+  ["scripts/import-file.mts", ""],
 ];
 
 for (const [path, hint] of FILES) {

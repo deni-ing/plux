@@ -17,46 +17,14 @@
 
 import { createHash } from "node:crypto";
 import { readXlsx, type Cell } from "./xlsx";
+import {
+  type Check, type ParsedTxn, type TxnDirection, type TxnKind,
+  fromMinor, toMinor,
+} from "./types";
 
 // ───────────────────────────── טיפוסים ─────────────────────────────
 
-export type TxnDirection = "DEBIT" | "CREDIT";
-export type TxnStatus = "SETTLED" | "PENDING";
-export type TxnKind =
-  | "PURCHASE" | "INCOME" | "FEE" | "REFUND"
-  | "TRANSFER_IN" | "TRANSFER_OUT" | "STANDING_ORDER"
-  | "CARD_SETTLEMENT" | "OTHER";
-
-/**
- * הטיפוסים מוגדרים כאן כאיחוד מחרוזות ולא מיובאים מהלקוח של Prisma, בכוונה.
- * הפרסר לא נוגע במסד ולא צריך לדעת שהוא קיים — אפשר להריץ אותו מטסט,
- * מסקריפט או מדפדפן. השכבה שכותבת למסד היא זו שתמפה את הערכים.
- */
-export type ParsedTxn = {
-  bookedAt: string;              // YYYY-MM-DD
-  chargedAt: string | null;
-  amount: string;                // חתום: שלילי = כסף יוצא
-  currency: string;
-  originalAmount: string | null;
-  originalCurrency: string | null;
-  fxRate: string | null;
-  merchantRaw: string;
-  merchant: string;
-  descriptor: string | null;
-  providerCategory: string | null;
-  kind: TxnKind;
-  direction: TxnDirection;
-  status: TxnStatus;
-  cardLast4: string | null;
-  txnType: string | null;
-  channel: string | null;
-  note: string | null;
-  countsAsSpending: boolean;
-  dedupHash: string;
-  occurrence: number;
-};
-
-export type Check = { label: string; expected: string; actual: string; ok: boolean };
+export type { TxnDirection, TxnStatus, TxnKind, ParsedTxn, Check } from "./types";
 
 export type MaxParseResult = {
   format: "MAX_XLSX";
@@ -78,24 +46,6 @@ function currencyCode(raw: Cell): string | null {
   const s = String(raw ?? "").trim();
   if (!s) return null;
   return CURRENCY[s] ?? s.toUpperCase();
-}
-
-/**
- * כסף נשמר כמספר שלם של אגורות לאורך כל החישוב.
- * סכום של 0.1 ו-0.2 בנקודה צפה אינו 0.3, ובאימות מול סכום מוצהר
- * ההפרש הזה הופך לכישלון. שלמים לא סובלים מזה.
- */
-function toMinor(v: Cell): number | null {
-  if (v === null || v === "") return null;
-  const n = typeof v === "number" ? v : Number(String(v).replace(/[^\d.-]/g, ""));
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n * 100);
-}
-
-function fromMinor(n: number): string {
-  const sign = n < 0 ? "-" : "";
-  const a = Math.abs(n);
-  return `${sign}${Math.floor(a / 100)}.${String(a % 100).padStart(2, "0")}`;
 }
 
 /** "09-07-2026" → "2026-07-09". פורמט אחר נדחה במפורש ולא מנוחש. */
@@ -338,6 +288,7 @@ export function parseMaxXlsx(buf: Buffer): MaxParseResult {
         //    עסקאות מקומיות נצברות לחיוב מרוכז שיסומן CARD_SETTLEMENT ויוחרג.
         countsAsSpending,
         dedupHash,
+        balanceAfter: null,
         occurrence: 0,
       });
     }

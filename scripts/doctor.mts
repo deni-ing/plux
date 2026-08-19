@@ -16,6 +16,7 @@ import "dotenv/config";
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { parseMaxXlsx } from "../lib/parsers/max";
+import { parseLeumiLines } from "../lib/parsers/leumi";
 
 const G = "\x1b[32m", R = "\x1b[31m", Y = "\x1b[33m", D = "\x1b[2m", O = "\x1b[0m";
 
@@ -91,6 +92,15 @@ function contains(path: string, needle: string, label: string, hint = "") {
 }
 
 contains("package.json", '"postinstall"', "package.json מריץ prisma generate", "בלעדיו הבנייה ב-Vercel תיפול: lib/generated לא בגיט");
+
+// תלויות. חסרה אחת — הקוד מתקמפל ונופל רק בזמן ריצה, על נתיב מסוים.
+for (const dep of ["@clerk/nextjs", "@prisma/adapter-pg", "prisma", "unpdf"]) {
+  contains("package.json", `"${dep}"`, `החבילה ${dep} מותקנת`, "npm install " + dep);
+}
+
+existsSync("docs/PROJECT-STATE.md")
+  ? say("files", "pass", "docs/PROJECT-STATE.md")
+  : say("files", "warn", "docs/PROJECT-STATE.md חסר", "מסמך המסירה — בלעדיו שיחה חדשה מתחילה מאפס");
 contains("proxy.ts", "clerkMiddleware", "proxy.ts מפעיל את clerkMiddleware");
 contains("app/layout.tsx", "ClerkProvider", "layout עטוף ב-ClerkProvider");
 contains("app/layout.tsx", 'dir="rtl"', "layout מוגדר RTL");
@@ -190,7 +200,42 @@ try {
       : say("parser", "fail", `זוהו ${pending} ממתינות במקום 2`);
   }
 } catch (e) {
-  say("parser", "fail", "הפרסר נפל", e instanceof Error ? e.message : String(e));
+  say("parser", "fail", "פרסר MAX נפל", e instanceof Error ? e.message : String(e));
+}
+
+/**
+ * דף חשבון סינתטי, בקוד ולא בקובץ. ארבע שורות שמספיקות כדי לאמת את
+ * הלוגיקה המרכזית: הסימן נגזר מהפרש היתרות, ולא ממיקום העמודה.
+ * 1000 → 1300 (זכות 300) → 1250 (חובה 50) → 1250.
+ */
+try {
+  const fixture = [
+    "     מספר חשבון: 662-03660656",
+    "     לתקופה: 01.01.2026 - 31.01.2026",
+    "     יתרה מצטברת    חובה      זכות      סוג תנועה    תאריך",
+    "     ₪ 1,250.00     ₪ 50.00                עמל.ערוץ יש 11    31.01.2026",
+    "     ₪ 1,300.00                ₪ 300.00   הפועלים-ביט       30.01.2026",
+    "     ₪ 1,000.00     ₪ 120.00               מקס איט פיננ-י    29.01.2026",
+  ];
+  const r = parseLeumiLines(fixture);
+  const chain = r.checks.find((c) => c.label.includes("שרשרת"));
+  chain?.ok
+    ? say("parser", "pass", "שרשרת היתרות בלאומי", `${r.transactions.length} תנועות, ${chain.actual}`)
+    : say("parser", "fail", "שרשרת היתרות בלאומי", chain ? `${chain.actual} מתוך ${chain.expected}` : "לא בוצעה");
+
+  const fee = r.transactions.find((t) => t.kind === "FEE");
+  const inbound = r.transactions.find((t) => t.kind === "TRANSFER_IN");
+  const card = r.transactions.find((t) => t.kind === "CARD_SETTLEMENT");
+
+  fee?.amount === "-50.00" && inbound?.amount === "300.00"
+    ? say("parser", "pass", "הסימן נגזר מהיתרות ולא ממיקום עמודה")
+    : say("parser", "fail", "הסימן שגוי", `עמלה=${fee?.amount} זכות=${inbound?.amount}`);
+
+  card && card.countsAsSpending === false
+    ? say("parser", "pass", "חיוב אשראי מוחרג מהוצאות", "מונע ספירה כפולה מול קובץ MAX")
+    : say("parser", "fail", "חיוב אשראי לא הוחרג", "יגרום לספירה כפולה של ההוצאות");
+} catch (e) {
+  say("parser", "fail", "פרסר לאומי נפל", e instanceof Error ? e.message : String(e));
 }
 
 // ═══════════════════════════ 5. גיט ═══════════════════════════
@@ -211,6 +256,20 @@ for (const secret of [".env", ".env.local"]) {
       : say("git", "pass", `${secret} לא קיים`);
   }
 }
+
+try {
+  const dirty = git("status", "--porcelain").split("\n").filter(Boolean);
+  dirty.length === 0
+    ? say("git", "pass", "עץ העבודה נקי")
+    : say("git", "warn", `${dirty.length} קבצים לא שמורים`, dirty.slice(0, 5).join(", "));
+} catch { say("git", "warn", "לא ניתן לקרוא את מצב עץ העבודה"); }
+
+try {
+  const ahead = git("rev-list", "--count", "@{u}..HEAD");
+  ahead === "0"
+    ? say("git", "pass", "הכל נדחף ל-origin")
+    : say("git", "warn", `${ahead} commits לא נדחפו`, "git push");
+} catch { say("git", "warn", "אין remote מוגדר או שאין upstream לענף"); }
 
 try {
   const tracked = git("ls-files").split("\n");

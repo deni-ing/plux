@@ -50,9 +50,20 @@ envCheck("DATABASE_URL", (v) => v.includes("plux_app."), "האפליקציה צ�
 envCheck("DIRECT_URL", (v) => v.includes("postgres."), "מיגרציות רצות כ-postgres, בחיבור ישיר");
 envCheck("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", (v) => v.startsWith("pk_"), "המפתח הפומבי מתחיל ב-pk_");
 envCheck("CLERK_SECRET_KEY", (v) => v.startsWith("sk_"), "מפתח השרת מתחיל ב-sk_");
+envCheck("SUPABASE_URL", (v) => v.startsWith("https://"), "כתובת הפרויקט, בצורה https://<ref>.supabase.co");
+envCheck("SUPABASE_SERVICE_ROLE_KEY", (v) => v.length > 20, "מפתח שרת לאחסון. Project Settings → API Keys → Secret keys");
+envCheck("CRON_SECRET", (v) => v.length >= 24, "סוד לנתיבי cron. קצר מדי = ניתן לניחוש");
 
-if (env.NEXT_PUBLIC_CLERK_SECRET_KEY) {
-  say("env", "fail", "קיים NEXT_PUBLIC_CLERK_SECRET_KEY", "הקידומת NEXT_PUBLIC_ מפרסמת את מפתח השרת לדפדפן. הסר אותה מיד.");
+// סודות שדלפו לדפדפן. כל אחד מהם הוא חשיפה מלאה, ולכן זו בדיקה ולא אזהרה.
+for (const leaked of [
+  "NEXT_PUBLIC_CLERK_SECRET_KEY",
+  "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
+  "NEXT_PUBLIC_CRON_SECRET",
+  "NEXT_PUBLIC_DATABASE_URL",
+]) {
+  if (env[leaked]) {
+    say("env", "fail", `קיים ${leaked}`, "הקידומת NEXT_PUBLIC_ מטמיעה את הערך בקוד שנשלח לדפדפן. הסר מיד והנפק מחדש.");
+  }
 }
 
 // ═══════════════════════════ 2. קבצים ═══════════════════════════
@@ -79,6 +90,13 @@ const FILES: [string, string][] = [
   ["scripts/parse-check.mts", ""],
   ["scripts/leumi-check.mts", ""],
   ["scripts/import-file.mts", ""],
+  ["scripts/audit.mts", ""],
+  ["lib/storage/statements.ts", "שמירת הדוח הגולמי"],
+  ["lib/db/maintenance.ts", "החריג היחיד ל-RLS — עבודות מערכת בלבד"],
+  ["app/api/imports/route.ts", ""],
+  ["app/import/page.tsx", ""],
+  ["app/api/cron/purge-statements/route.ts", "מחיקה אחרי 30 יום"],
+  ["vercel.json", "בלעדיו ה-cron לא נרשם ב-Vercel"],
 ];
 
 for (const [path, hint] of FILES) {
@@ -105,6 +123,10 @@ contains("proxy.ts", "clerkMiddleware", "proxy.ts מפעיל את clerkMiddlewar
 contains("app/layout.tsx", "ClerkProvider", "layout עטוף ב-ClerkProvider");
 contains("app/layout.tsx", 'dir="rtl"', "layout מוגדר RTL");
 contains("lib/db/client.ts", "set_config", "הגישה למסד עוברת ב-SET LOCAL");
+contains("vercel.json", "purge-statements", "vercel.json רושם את משימת המחיקה");
+contains("app/api/imports/route.ts", "storeStatement", "הייבוא שומר את הקובץ הגולמי");
+contains("app/api/imports/route.ts", "503", "כשל בזיהוי מוחזר כ-503 ולא כ-500 סתמי");
+contains("app/api/cron/purge-statements/route.ts", "CRON_SECRET", "נתיב המחיקה מוגן בסוד משותף");
 
 if (existsSync("middleware.ts")) {
   say("files", "warn", "קיים גם middleware.ts", "ב-Next 16 הקובץ הפעיל הוא proxy.ts. שניהם יחד מבלבלים.");

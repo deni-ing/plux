@@ -112,31 +112,38 @@ if (settlements.length === 0) {
 } else if (cardTxns.length === 0) {
   console.log(`  ${D}אין תנועות אשראי — ייבא את קובצי MAX${O}`);
 } else {
-  let matched = 0, unmatched = 0, matchedMinor = 0;
-  const misses: string[] = [];
-
+  // << ביום אחד עשויות להיות כמה שורות חיוב בבנק — החיוב החודשי המרוכז
+  //    לצד חיוב חו״ל שהגיע באותו יום. השוואה של שורת בנק בודדת מול סכום
+  //    היום כולו נכשלת אז, למרות שהנתונים תקינים. ההשוואה הנכונה היא
+  //    סכום מול סכום, לפי תאריך.
+  const bankByDate = new Map<string, number>();
   for (const s of settlements) {
     const key = s.bookedAt.toISOString().slice(0, 10);
-    const fromCard = byChargeDate.get(key);
-    const bank = toMinor(s.amount);
+    bankByDate.set(key, (bankByDate.get(key) ?? 0) + toMinor(s.amount));
+  }
+
+  let matchedDays = 0, matchedMinor = 0;
+  const misses: string[] = [];
+
+  for (const [date, bank] of [...bankByDate].sort((a, b) => (a[0] < b[0] ? 1 : -1))) {
+    const fromCard = byChargeDate.get(date);
     if (fromCard !== undefined && fromCard === bank) {
-      matched++; matchedMinor += bank;
-    } else {
-      unmatched++;
-      if (misses.length < 5) {
-        misses.push(`${key}: בנק ${ils(bank)} מול אשראי ${fromCard === undefined ? "—" : ils(fromCard)}`);
-      }
+      matchedDays++; matchedMinor += bank;
+    } else if (misses.length < 5) {
+      misses.push(`${date}: בנק ${ils(bank)} מול אשראי ${fromCard === undefined ? "—" : ils(fromCard)}`);
     }
   }
 
+  const unmatched = bankByDate.size - matchedDays;
+
   check(
-    matched > 0,
-    `${matched} מתוך ${settlements.length} חיובי בנק תואמים לתנועות אשראי`,
-    `סך מותאם: ${ils(matchedMinor)}`
+    matchedDays > 0,
+    `${matchedDays} מתוך ${bankByDate.size} ימי חיוב מתלכדים במדויק`,
+    `סך מותאם: ${ils(matchedMinor)}  ·  ${settlements.length} שורות בנק`
   );
 
   if (unmatched) {
-    console.log(`  ${D}${unmatched} ללא התאמה — צפוי לחודשים שקובץ ה-MAX שלהם לא יובא:${O}`);
+    console.log(`  ${D}${unmatched} ימים ללא התאמה — צפוי לחודשים שקובץ ה-MAX שלהם לא יובא:${O}`);
     for (const m of misses) console.log(`    ${D}${m}${O}`);
   }
 }

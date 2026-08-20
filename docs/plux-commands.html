@@ -1,0 +1,267 @@
+<html dir="rtl"><head><meta charset="utf-8"><title>Plux — הסבר פקודות</title></head><body dir="rtl" style="direction:rtl;text-align:right;font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:24px;line-height:1.7">
+<h1 dir="rtl" style="direction:rtl;text-align:right">Plux — הסבר פקודות</h1>
+<p dir="rtl" style="direction:rtl;text-align:right">מרכז את כל הפקודות שהופיעו בבניית הפרויקט, לפי קטגוריה. כל פקודה מופיעה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">פעם אחת, בצורתה הכללית, עם הסבר קצר על מה שהיא עושה ולמה השתמשנו בה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוסכמות: <code>&lt;כך&gt;</code> מסמן ערך שמחליפים. הפקודות נכתבו ל-PowerShell על Windows,</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מתוך תיקיית הפרויקט <code>C:\Users\danie\source\plux</code>.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">1. PowerShell — ניווט וקבצים</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>dir</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מציג את תוכן התיקייה הנוכחית. השתמשנו בו כדי לוודא באיזו תיקייה אנחנו לפני</p>
+<p dir="rtl" style="direction:rtl;text-align:right">פקודות שיוצרות קבצים, ולראות אילו קובצי תצורה קיימים בשורש.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>dir &lt;קובץ1&gt;, &lt;קובץ2&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">בודק קיום של כמה קבצים בבת אחת. מחזיר שגיאה על כל אחד שחסר, וזו הדרך המהירה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לוודא שהעתקה הצליחה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>dir &lt;תיקייה&gt; -Recurse -File | Select-Object -ExpandProperty FullName</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיס את הנתיב המלא של כל קובץ בתיקייה ובתת-התיקיות. שימושי כדי לראות בדיוק</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מה חולץ מארכיון לפני שמעתיקים אותו לפרויקט.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>mkdir &lt;תיקייה&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">יוצר תיקייה. עם <code>-Force</code> הפקודה לא נכשלת אם התיקייה כבר קיימת.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>move &lt;מקור&gt; &lt;יעד&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מעביר קובץ. השתמשנו בו כדי להעביר קובץ בודד מתיקיית ההורדות לפרויקט.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Copy-Item &lt;מקור&gt; &lt;יעד&gt; -Force</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מעתיק קובץ ודורס קיים. <b>חשוב:</b> עם תיקיות ו-<code>-Recurse</code> הפקודה הזו **אינה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ממזגת** לתוך תיקייה קיימת אלא מעתיקה אותה לתוכה, ויוצרת קינון כמו</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>lib\lib\db</code>. לתיקיות השתמשנו ב-<code>robocopy</code>.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Rename-Item &lt;קובץ&gt; &lt;שם חדש&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">משנה שם. נדרש כשווינדוס שומר הורדה חוזרת בשם <code>plux-parser (1).zip</code> והפקודות</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מצביעות לשם הנקי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Remove-Item &lt;נתיב&gt; -Force</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוחק קובץ. <code>-Recurse</code> מוחק תיקייה על תוכנה, ו-<code>-ErrorAction SilentlyContinue</code></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מונע שגיאה כשהקובץ ממילא לא קיים — שימושי בפקודות ניקוי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Get-ChildItem &lt;תבנית&gt; | Sort-Object LastWriteTime -Descending | Select-Object -Skip 1 | Remove-Item -Force</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוחק את כל הקבצים התואמים חוץ מהחדש ביותר. <code>-Skip 1</code> הוא הלב — בלעדיו זה מוחק</p>
+<p dir="rtl" style="direction:rtl;text-align:right">גם את זה שרצית לשמור.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">**<code>$files = (Get-ChildItem $HOME\Downloads\<i>export</i>.xlsx).FullName</code>**</p>
+<p dir="rtl" style="direction:rtl;text-align:right">אוסף נתיבים לתוך משתנה. PowerShell מפרק מערך לארגומנטים נפרדים אוטומטית, ולכן</p>
+<p dir="rtl" style="direction:rtl;text-align:right">אפשר להעביר <code>$files</code> לסקריפט וכל הקבצים יגיעו כארגומנטים — גם אם יש רווחים בשמות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">המשתנה מתאפס עם כל חלון טרמינל חדש.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">2. PowerShell — ארכיונים והעתקה לפרויקט</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Expand-Archive &lt;קובץ.zip&gt; -DestinationPath &lt;תיקייה&gt; -Force</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחלץ ארכיון. <code>-Force</code> דורס חילוץ קודם באותה תיקייה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>robocopy &lt;מקור&gt; . /E /IS</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מעתיק עץ תיקיות שלם ו<b>ממזג</b> לתוך היעד במקום ליצור קינון. <code>/E</code> כולל</p>
+<p dir="rtl" style="direction:rtl;text-align:right">תת-תיקיות ריקות, <code>/IS</code> דורס גם קבצים שנראים לו זהים. מסיים בקוד יציאה 1</p>
+<p dir="rtl" style="direction:rtl;text-align:right">בהצלחה — אצלו 0 פירושו &quot;לא היה מה להעתיק&quot;.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>הרצף המלא שחזר לאורך הפרויקט:</b></p>
+<pre dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code>Remove-Item $HOME\Downloads\&lt;שם&gt; -Recurse -Force -ErrorAction SilentlyContinue
+Expand-Archive $HOME\Downloads\&lt;שם&gt;.zip -DestinationPath $HOME\Downloads\&lt;שם&gt; -Force
+robocopy $HOME\Downloads\&lt;שם&gt; . /E /IS
+Select-String -Path &lt;קובץ שהועתק&gt; -Pattern &quot;&lt;מילה חדשה&gt;&quot; -SimpleMatch</code></pre>
+<p dir="rtl" style="direction:rtl;text-align:right">מוחק חילוץ ישן, מחלץ, ממזג לפרויקט, ומאמת שהקוד באמת הגיע. השורה האחרונה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">היא זו שחסכה סבבים שלמים.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">3. PowerShell — קריאה ואימות</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>type &lt;קובץ&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיס את תוכן הקובץ. הכינוי של <code>Get-Content</code>.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Get-Content &lt;קובץ&gt; -TotalCount &lt;N&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיס רק את N השורות הראשונות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Get-Content &lt;קובץ&gt; -Raw</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">קורא את הקובץ כמחרוזת אחת ולא כמערך שורות. נדרש לביטויים רגולריים שפורשים על</p>
+<p dir="rtl" style="direction:rtl;text-align:right">כמה שורות — אבל שים לב ש-<code>^</code> אז מתייחס לתחילת המחרוזת כולה, לא לתחילת שורה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Add-Content &lt;קובץ&gt; &quot;&lt;טקסט&gt;&quot;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוסיף שורה לסוף קובץ. השתמשנו בו כדי להוסיף חריג ל-<code>.gitignore</code>.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>(Get-Item &lt;קובץ&gt;).Length</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחזיר את גודל הקובץ בבתים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Get-FileHash &lt;קובץ&gt; -Algorithm SHA256 | Format-List</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחשב טביעת אצבע של הקובץ. משמש לוודא שהקובץ על הדיסק זהה לזה שנשלח.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>מגבלה:</b> גיבוב שונה אומר &quot;לא זהה&quot; ולא <b>מה</b> שונה — סופי שורה שהומרו</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ל-CRLF ייתנו גיבוב שונה לקובץ תקין.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>Select-String -Path &lt;קובץ&gt; -Pattern &quot;&lt;טקסט&gt;&quot; -SimpleMatch</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחפש מחרוזת בקובץ ומדפיס את השורות התואמות. <code>-SimpleMatch</code> מבטל פירוש כביטוי</p>
+<p dir="rtl" style="direction:rtl;text-align:right">רגולרי. <b>זו הדרך העדיפה לוודא גרסת קוד:</b> חיפוש מילה שקיימת רק בגרסה החדשה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">עונה ישירות על &quot;ישן או חדש&quot;, ואינו רגיש לסופי שורה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>&lt;פקודה&gt; 2&gt;&amp;1 | Select-String -Pattern &quot;&lt;תבנית&gt;&quot;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מסנן פלט ארוך ומשאיר רק שורות מעניינות. <code>2&gt;&amp;1</code> מפנה גם את פלט השגיאות לצינור.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>אזהרה:</b> הצינור שובר קידוד UTF-8, וטקסט עברי יוצא משובש.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">4. PowerShell — סודות ומחרוזות</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>-join ((48..57)+(65..90)+(97..122) | Get-Random -Count 48 | % {[char]$_})</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מייצר מחרוזת אקראית באורך 48 מאותיות וספרות בלבד. שימש ליצירת <code>CRON_SECRET</code>.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ללא תווים מיוחדים, כדי שלא יישבר בכותרות או במחרוזות חיבור.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>(Select-String -Path .env -Pattern &#x27;URL&#x27;).Line -replace &#x27;(://[^:]+:)[^@]+(@)&#x27;,&#x27;$1</b>*$2&#x27;</code>**</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיס את שורות מחרוזות החיבור <b>עם הסיסמה מוחלפת ב-<code></b>*</code>**. מאפשר לבדוק שם</p>
+<p dir="rtl" style="direction:rtl;text-align:right">משתמש, מארח ופורט בלי לחשוף את הסוד — וכך גילינו ש-<code>DIRECT_URL</code> הצביע לתפקיד</p>
+<p dir="rtl" style="direction:rtl;text-align:right">הלא נכון.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>([regex]&#x27;&lt;תבנית&gt;&#x27;).Match((Get-Content .env -Raw)).Groups[1].Value</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">שולף ערך יחיד מקובץ לפי קבוצת לכידה. השתמשנו בו כדי לקרוא את <code>CRON_SECRET</code></p>
+<p dir="rtl" style="direction:rtl;text-align:right">לתוך משתנה בלי להדפיס אותו.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">5. Git</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git config --global user.name &quot;&lt;שם&gt;&quot;</code> / <code>git config --global user.email &quot;&lt;מייל&gt;&quot;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">קובע את הזהות שנצרבת בכל commit. הפרטים נחשפים אם הריפו ציבורי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git init</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מאתחל ריפו. על ריפו קיים הוא מדפיס <code>Reinitialized</code> ואינו הורס דבר.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git add .</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוסיף את כל השינויים לאזור ההכנה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git status --short</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מציג רשימה קצרה של שינויים: <code>A</code> חדש, <code>M</code> שונה, <code>??</code> לא מנוהל. **זו נקודת</p>
+<p dir="rtl" style="direction:rtl;text-align:right">העצירה לפני כל commit** — הרגע היחיד שבו קל למנוע סוד שנכנס להיסטוריה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git commit -m &quot;&lt;הודעה&gt;&quot;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">שומר את מה שבאזור ההכנה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git push</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">דוחף לשרת המרוחק.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git log --oneline</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מציג את ההיסטוריה בשורה לכל commit. <code>-2</code> מגביל למספר האחרונים. הסימון</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>(HEAD -&gt; main, origin/main)</code> מראה שהמקומי והמרוחק מסונכרנים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git ls-files</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיס את <b>כל</b> הקבצים המנוהלים בגיט, לא רק את השינויים. כך בדקנו שאין</p>
+<p dir="rtl" style="direction:rtl;text-align:right">דפי חשבון או קובצי אקסל בהיסטוריה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git check-ignore -v &lt;קובץ&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">עונה האם הקובץ חסום ולפי איזה כלל. <b>תשובה ישירה מהמנגנון</b> במקום הנחה —</p>
+<p dir="rtl" style="direction:rtl;text-align:right">פלט כמו <code>.gitignore:34:.env*</code> הוא אישור, ושתיקה אומרת שהקובץ <b>אינו</b> חסום.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git checkout -- &lt;קובץ&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחזיר קובץ למצב השמור האחרון. שימש כשקובץ נמחק או נדרס בטעות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git status --porcelain</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">פלט קבוע לעיבוד אוטומטי. משמש בתוך <code>doctor</code> כדי לדעת אם עץ העבודה נקי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>git rev-list --count @{u}..HEAD</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מספר ה-commits שקיימים מקומית ולא נדחפו. <code>0</code> פירושו שהכל אצל השרת.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">6. npm ו-Node</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npm install &lt;חבילה&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מתקין חבילה ומוסיף אותה ל-<code>package.json</code>. התקנו כך <code>@clerk/nextjs</code>,</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>@supabase/supabase-js</code> ו-<code>unpdf</code>.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npm run dev</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מריץ שרת פיתוח. <b>מקמפל לפי דרישה ואינו מריץ בדיקת טיפוסים מלאה</b> — ולכן</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שגיאות טיפוסים לא מתגלות בו.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npm run build</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">בנייה מלאה: קומפילציה, בדיקת טיפוסים על כל הפרויקט, ESLint, ורינדור מקדים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>זה בדיוק מה ש-Vercel מריץ.</b> ארבעה דיפלויים נכשלו בפרויקט הזה על שגיאה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שהפקודה הזו הייתה תופסת בשלושים שניות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx &lt;קובץ.mts&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מריץ קובץ TypeScript ישירות, בלי שלב בנייה נפרד. כל סקריפטי הבדיקה בפרויקט</p>
+<p dir="rtl" style="direction:rtl;text-align:right">רצים כך.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>&quot;postinstall&quot;: &quot;prisma generate&quot;</code> ב-<code>package.json</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">לא פקודה שמריצים אלא הגדרה: npm מריץ אותה מעצמו בסיום כל התקנה. **קריטית</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ל-Vercel**, כי <code>lib/generated</code> חסום ב-<code>.gitignore</code> ולכן לא קיים בשרת הבנייה.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">7. Prisma CLI</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma migrate dev</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחיל מיגרציות שטרם הוחלו, ואם יש פער בין הסכימה למסד — יוצר מיגרציה חדשה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדפיסה רק את המיגרציות ש<b>היא</b> הריצה, לא את כל הרשימה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma migrate dev --name &lt;שם&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">כנ״ל, עם שם מפורש למיגרציה שתיווצר.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma migrate dev --create-only --name &lt;שם&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">יוצר תיקיית מיגרציה <b>בלי להריץ אותה</b>. זו הדרך הנכונה להוסיף SQL ידני</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שהסכימה לא יודעת עליו — Prisma נותנת חותמת זמן תקינה ואין צורך לחשב תאריכים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma migrate status</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">משווה בין תיקיית <code>migrations/</code> לטבלת ההיסטוריה במסד ומדווח על פערים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>משתמשת ב-<code>DIRECT_URL</code></b>, ולכן היא גם הבדיקה הנכונה לחיבור המיגרציות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma migrate reset</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>הורס.</b> מוחק את כל הטבלאות ואת טבלת ההיסטוריה, ובונה מחדש מהמיגרציות בלבד.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">בפרויקט הזה הריצה שלו גם הוכיחה שההיסטוריה שלמה ורפרודוקטיבית.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx prisma generate</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מייצר את לקוח Prisma מהסכימה אל <code>lib/generated</code>.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">8. סקריפטים של הפרויקט</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\doctor.mts</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">בדיקת בריאות כוללת: משתני סביבה, קיום קבצים ותוכנם, מצב המסד וה-RLS,</p>
+<p dir="rtl" style="direction:rtl;text-align:right">הפרסרים, ומצב הגיט. מיועד לרוץ לפני כל דיפלוי ואחרי כל שינוי מבני.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\rls-check.mts</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מוכיח שהבידוד בין משתמשים נאכף: יוצר שני משתמשי בדיקה, כותב נתון אצל אחד,</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ומנסה להגיע אליו מכל כיוון אחר. מנקה אחריו בסוף.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\parse-check.mts &lt;קבצים...&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מריץ את פרסר MAX ומשווה את הסכום שחושב לשורת &quot;סך הכל&quot; שבתחתית כל גיליון.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\leumi-check.mts &lt;קובץ.pdf&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מריץ את פרסר לאומי ומאמת את שרשרת היתרות. עם <code>--text &lt;קובץ.txt&gt;</code> מקבל טקסט</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שכבר חולץ — כך מפרידים בין &quot;הפרסר טועה&quot; ל&quot;חילוץ ה-PDF טועה&quot;.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\import-file.mts --dry &lt;קבצים...&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מפענח ומדפיס <b>בלי לכתוב למסד</b>. לבדיקת קובץ חדש לפני שנוגעים בנתונים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\import-file.mts --user &lt;clerk-user-id&gt; &lt;קבצים...&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מייבא קבצים למסד תחת זהות משתמש. מריץ בדיוק את אותו נתיב קוד שה-API מריץ,</p>
+<p dir="rtl" style="direction:rtl;text-align:right">בלי דפדפן.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>npx tsx scripts\audit.mts --user &lt;clerk-user-id&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">ביקורת על הנתונים שכבר במסד: בידוד על נתונים אמיתיים, הצלבת חיובי האשראי</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מול תנועות MAX, ומדידת הנפח שנחסך בזכות <code>countsAsSpending</code>.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">9. SQL — תפקידים והרשאות</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>CREATE ROLE plux_app NOLOGIN NOBYPASSRLS NOCREATEDB NOCREATEROLE NOSUPERUSER;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">יוצר תפקיד ייעודי לאפליקציה. <code>NOBYPASSRLS</code> הוא הלב — בלעדיו התפקיד מתעלם</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מכל מדיניות RLS, בשקט. נוצר עם <code>NOLOGIN</code> כדי שהסיסמה תיקבע בנפרד ולא תיכנס</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לקובץ מיגרציה שנשמר בגיט.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>ALTER ROLE plux_app WITH LOGIN PASSWORD &#x27;&lt;סיסמה&gt;&#x27;;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מפעיל כניסה וקובע סיסמה. <b>פקודה חד-פעמית</b> — מריצים, דורסים את הטקסט, ולא</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שומרים את השאילתה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>GRANT USAGE ON SCHEMA public TO plux_app;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מתיר לתפקיד לגשת לסכימה. בלי זה אין גישה לשום טבלה שבתוכה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO plux_app;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">נותן הרשאות <b>נתונים בלבד</b>. אין <code>CREATE</code>, אין <code>ALTER</code>, אין <code>DROP</code> — ולכן</p>
+<p dir="rtl" style="direction:rtl;text-align:right">באג בקוד האפליקציה אינו יכול להרוס מבנה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO plux_app;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מתיר שימוש במונים אוטומטיים, שנדרשים להכנסת שורות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ... TO plux_app;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחיל את ההרשאות גם על טבלאות <b>שייווצרו בעתיד</b>. בלי זה, כל מודל חדש נראה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לאפליקציה כאילו אינו קיים — והשגיאה תהיה &quot;אין הרשאה&quot;, לא &quot;טבלה חסרה&quot;.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>SELECT rolname, rolcanlogin, rolbypassrls FROM pg_roles WHERE rolname = &#x27;&lt;תפקיד&gt;&#x27;;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">בודק שהתפקיד קיים, האם הוא יכול להתחבר, והאם הוא עוקף RLS.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>SELECT current_user, (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user);</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">עונה על השאלה הקריטית: <b>באיזה תפקיד אני מחובר עכשיו, והאם הוא עוקף RLS.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">זו השאילתה שחשפה שה-RLS כלל לא נאכף.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">10. SQL — Row Level Security</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>CREATE OR REPLACE FUNCTION plux_current_user_id() ... SELECT NULLIF(current_setting(&#x27;app.current_user_id&#x27;, true), &#x27;&#x27;)</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">קוראת את זהות המשתמש שנקבעה לטרנזקציה. ה-<code>true</code> אומר &quot;אל תזרוק שגיאה אם לא</p>
+<p dir="rtl" style="direction:rtl;text-align:right">הוגדר&quot;, ואז מוחזר <code>NULL</code> — וכל השוואה ל-<code>NULL</code> אינה אמת. **ברירת המחדל היא</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לא לראות כלום.**</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>ALTER TABLE &lt;טבלה&gt; ENABLE ROW LEVEL SECURITY;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדליק את המנגנון על הטבלה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>ALTER TABLE &lt;טבלה&gt; FORCE ROW LEVEL SECURITY;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחיל את המדיניות <b>גם על בעל הטבלה</b>, שאחרת פטור ממנה. **אינו משפיע על</p>
+<p dir="rtl" style="direction:rtl;text-align:right">תכונת <code>BYPASSRLS</code> של תפקיד** — אלה שני מנגנוני עקיפה שונים, וצריך לסגור את</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שניהם.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>CREATE POLICY &lt;שם&gt; ON &lt;טבלה&gt; FOR ALL USING (...) WITH CHECK (...);</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">החוק עצמו. <code>USING</code> שולט במה שרואים (קריאה, עדכון, מחיקה), <code>WITH CHECK</code> שולט</p>
+<p dir="rtl" style="direction:rtl;text-align:right">במה שכותבים. בלי השני אפשר לקרוא רק את שלך אבל לשתול נתונים אצל אחרים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>SELECT set_config(&#x27;app.current_user_id&#x27;, &lt;ערך&gt;, true);</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">קובע את זהות המשתמש לטרנזקציה. ה-<code>true</code> הופך אותו ל-<code>SET LOCAL</code>, כלומר</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מתאפס ב-COMMIT. <b>קריטי מאחורי pooler</b>: <code>SET</code> רגיל היה נשאר על החיבור,</p>
+<p dir="rtl" style="direction:rtl;text-align:right">והבקשה הבאה הייתה יורשת את זהות המשתמש הקודם.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">**<code>SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity, (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = &#x27;public&#x27; AND c.relkind = &#x27;r&#x27;;</code>**</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מדווח לכל טבלה: האם RLS דלוק, האם הוא כפוי, וכמה מדיניות יש עליה. משמש</p>
+<p dir="rtl" style="direction:rtl;text-align:right">ב-<code>doctor</code> כדי לתפוס טבלה חדשה שנוספה לסכימה ונשכחה ב-RLS.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">11. SQL — בדיקות ותחזוקה</h2>
+<p dir="rtl" style="direction:rtl;text-align:right">**<code>SELECT (SELECT count(<i>) FROM transactions) AS txns, (SELECT count(</i>) FROM accounts) AS accounts, (SELECT count(*) FROM import_jobs) AS jobs;</code>**</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שלוש ספירות בשאילתה אחת. כך אימתנו שייבוא חוזר של אותו קובץ אינו מכפיל</p>
+<p dir="rtl" style="direction:rtl;text-align:right">שורות — 169 תנועות מול שלוש משימות ייבוא.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>SELECT &quot;fileName&quot;, &quot;storagePath&quot;, &quot;startedAt&quot; FROM import_jobs ORDER BY &quot;startedAt&quot; DESC LIMIT 3;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מציג את הייבואים האחרונים. <b>המרכאות הכפולות נדרשות</b> כי Prisma יוצרת שמות</p>
+<p dir="rtl" style="direction:rtl;text-align:right">עמודות באותיות מעורבות, ו-Postgres מקטין שמות לא-מצוטטים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">מציג אילו מיגרציות הוחלו ואילו לא הושלמו. הטבלה הזו היא מקור האמת של Prisma.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>insert into storage.buckets (id, name, public, file_size_limit) values (...) on conflict (id) do update set ...;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">יוצר דלי אחסון פרטי. <code>on conflict</code> הופך את הפקודה לבטוחה להרצה חוזרת.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>DO $$ BEGIN IF ... THEN RAISE EXCEPTION &#x27;...&#x27;; END IF; END $$;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">בלוק לוגי בתוך SQL. השתמשנו בו כדי ליצור תפקיד רק אם אינו קיים, וכדי להכשיל</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מיגרציה אם התפקיד יקבל <code>BYPASSRLS</code> בעתיד — <b>נורית אזהרה, לא רק תיעוד.</b></p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">12. HTTP — בדיקת נתיבים</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>curl.exe -i &lt;כתובת&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">שולח בקשה ומדפיס גם את הכותרות. <b><code>curl.exe</code> ולא <code>curl</code></b> — ב-PowerShell</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>curl</code> הוא כינוי לפקודה אחרת עם תחביר שונה לגמרי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b><code>curl.exe -i -H &quot;Authorization: Bearer &lt;סוד&gt;&quot; &lt;כתובת&gt;</code></b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">שולח בקשה עם כותרת הרשאה. כך נבדק נתיב ה-cron: <code>401</code> בלי הכותרת, <code>200</code> איתה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>שתי הבדיקות נדרשות</b> — נתיב שמחזיר 200 עם הסוד אבל גם בלעדיו אינו מוגן.</p>
+<hr>
+<h2 dir="rtl" style="direction:rtl;text-align:right">13. דפוסים שחוזרים, ולמה הם שווים</h2>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>לפני שמנתחים התנהגות — לוודא שהקוד על הדיסק הוא הקוד שנכתב.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>Select-String</code> על מילה שקיימת רק בגרסה החדשה, או <code>Get-FileHash</code>. שתי שניות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">בפרויקט הזה ארבע פעמים נותחו שגיאות של קוד שמעולם לא הגיע ליעד.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>לפני <code>git push</code> — <code>npm run build</code>.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">שלושים שניות מקומית מול תור, לוג ודחיפה נוספת ב-Vercel. ארבעה דיפלויים</p>
+<p dir="rtl" style="direction:rtl;text-align:right">אדומים היו נמנעים.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>לפני <code>git commit</code> — <code>git status --short</code> ולקרוא.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">זה הרגע היחיד שבו קל למנוע סוד שנכנס להיסטוריה. אחריו הוא נשאר שם גם אם</p>
+<p dir="rtl" style="direction:rtl;text-align:right">תמחק אותו.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>לשאול את המנגנון במקום להניח.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>git check-ignore</code> עונה האם קובץ חסום. <code>SELECT current_user</code> עונה באיזה</p>
+<p dir="rtl" style="direction:rtl;text-align:right">תפקיד אתה מחובר. <code>migrate status</code> עונה מה הוחל. תשובה ממקור אמת עדיפה על</p>
+<p dir="rtl" style="direction:rtl;text-align:right">היסק מפלט חלקי.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>קוד שגיאה הוא מידע.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>P1000</code> הוא כשל הזדהות, <code>28P01</code> הוא סיסמה שגויה, <code>23503</code> הוא הפרת מפתח זר,</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><code>42501</code> הוא הרשאה חסרה. כל אחד מהם מצמצם את החיפוש מיד.</p>
+<p dir="rtl" style="direction:rtl;text-align:right"><b>כשסוד נחשף — מחליפים, לא מקווים.</b></p>
+<p dir="rtl" style="direction:rtl;text-align:right">וזכור שהחלפה היא <b>רשימה</b>: <code>.env</code> מקומי, משתני הסביבה של Vercel, וכל מקום</p>
+<p dir="rtl" style="direction:rtl;text-align:right">נוסף שבו הסוד חי.</p>
+</body></html>

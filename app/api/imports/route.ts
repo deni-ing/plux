@@ -40,7 +40,19 @@ export async function POST(req: Request) {
 
   // מוודא ששורת ה-User קיימת עם האימייל האמיתי מ-Clerk, ולא עם
   // ה-placeholder ש-ingest ייצור. חייב לקרות לפני הכתיבה הראשונה.
-  await syncCurrentUser();
+  //
+  // << עטוף בכוונה: כשל כאן הוא כשל תשתית — מסד שעוד לא ער, או קריאה
+  //    ל-Clerk שנפלה. בלי העטיפה כל הבקשה נופלת ב-500 סתמי, והמשתמש
+  //    לא יודע אם הקובץ נקלט. 503 אומר "נסה שוב", וזו התשובה הנכונה.
+  try {
+    await syncCurrentUser();
+  } catch (e) {
+    console.error("syncCurrentUser failed", e);
+    return Response.json(
+      { error: "השירות לא זמין כרגע. נסה שוב בעוד רגע — שום קובץ לא נקלט." },
+      { status: 503 }
+    );
+  }
 
   const results = [];
 

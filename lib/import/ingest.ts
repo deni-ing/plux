@@ -35,6 +35,12 @@ export type IngestOptions = {
   fileName: string;
   /** הנתיב ב-Supabase Storage. נשמר כדי לאפשר הרצה מחדש של הפענוח. */
   storagePath: string;
+  /**
+   * אימייל המשתמש, אם ידוע. משמש רק ליצירת שורת ה-User בפעם הראשונה.
+   * בנתיב האפליקציה `syncCurrentUser()` כבר יצר אותה עם האימייל האמיתי,
+   * וכאן לא נדרס דבר.
+   */
+  userEmail?: string;
 };
 
 export async function ingestStatement(
@@ -43,6 +49,16 @@ export async function ingestStatement(
   opts: IngestOptions
 ): Promise<ImportSummary> {
   return withUser(userId, async (db) => {
+    // << כל הטבלאות מצביעות על users.id במפתח זר, ולכן השורה חייבת להתקיים
+    //    לפני הכתיבה הראשונה. בדפדפן syncCurrentUser() כבר דאג לזה; בהרצה
+    //    מסקריפט או מ-cron אין מי שיעשה זאת, והמסד סירב — נכון שסירב.
+    //    update ריק בכוונה: ייבוא לא אמור לגעת בפרטי המשתמש.
+    await db.user.upsert({
+      where: { id: userId },
+      create: { id: userId, email: opts.userEmail ?? `${userId}@import.local` },
+      update: {},
+    });
+
     const account = await upsertAccount(db, userId, result);
 
     const job = await db.importJob.create({

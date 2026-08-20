@@ -41,6 +41,11 @@ export type IngestOptions = {
    * וכאן לא נדרס דבר.
    */
   userEmail?: string;
+  /**
+   * מזהה ה-ImportJob. נקבע מבחוץ כשהקובץ הגולמי נשמר, כי הנתיב באחסון
+   * בנוי סביבו וצריך להיות ידוע לפני שנכתבת השורה שמצביעה עליו.
+   */
+  jobId?: string;
 };
 
 export async function ingestStatement(
@@ -63,6 +68,7 @@ export async function ingestStatement(
 
     const job = await db.importJob.create({
       data: {
+        ...(opts.jobId ? { id: opts.jobId } : {}),
         userId,
         storagePath: opts.storagePath,
         fileName: opts.fileName,

@@ -18,7 +18,7 @@
 import { createHash } from "node:crypto";
 import { readXlsx, type Cell } from "./xlsx";
 import {
-  type Check, type ParsedTxn, type TxnDirection, type TxnKind,
+  type Check, type ParsedTxn, type TxnDirection, type TxnKind, type TxnStatus,
   fromMinor, toMinor,
 } from "./types";
 

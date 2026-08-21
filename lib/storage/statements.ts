@@ -30,7 +30,7 @@ export const BUCKET = "statements";
 
 let cached: SupabaseClient | null = null;
 
-function client(): SupabaseClient {
+async function client(): Promise<SupabaseClient> {
   if (cached) return cached;
 
   const url = process.env.SUPABASE_URL;
@@ -40,7 +40,11 @@ function client(): SupabaseClient {
   }
 
   // ייבוא דינמי: מונע מהחבילה להיכנס לבאנדל של הלקוח.
-  const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
+  //
+  // << היה כאן require(). הוא עבד, אבל ESLint אוסר אותו — בצדק: require
+  //    הוא CommonJS בתוך מודול ESM, וההתנהגות שלו תלויה בכלי שאורז.
+  //    `await import()` הוא הצורה התקנית, ולכן הפונקציה הפכה לאסינכרונית.
+  const { createClient } = await import("@supabase/supabase-js");
   cached = createClient(url, key, { auth: { persistSession: false } });
   return cached;
 }
@@ -65,7 +69,7 @@ export async function storeStatement(
 ): Promise<StoredFile> {
   const path = `${userId}/${jobId}/${safeName(file.name)}`;
 
-  const { error } = await client()
+  const { error } = await (await client())
     .storage.from(BUCKET)
     .upload(path, file.bytes, {
       contentType: file.type || "application/octet-stream",
@@ -81,12 +85,12 @@ export async function storeStatement(
  * חמש דקות מספיקות להורדה ולא מספיקות כדי שקישור שדלף יישאר שימושי.
  */
 export async function signedUrl(path: string, seconds = 300): Promise<string> {
-  const { data, error } = await client().storage.from(BUCKET).createSignedUrl(path, seconds);
+  const { data, error } = await (await client()).storage.from(BUCKET).createSignedUrl(path, seconds);
   if (error || !data) throw new Error(`יצירת קישור נכשלה: ${error?.message}`);
   return data.signedUrl;
 }
 
 export async function removeStatement(path: string): Promise<void> {
-  const { error } = await client().storage.from(BUCKET).remove([path]);
+  const { error } = await (await client()).storage.from(BUCKET).remove([path]);
   if (error) throw new Error(`מחיקה נכשלה: ${error.message}`);
 }

@@ -15,5 +15,12 @@ export type { SystemRule } from "./rules";
 
 export { MAX_CATEGORY_MAP, MAX_COARSE_CATEGORIES, mapMaxCategory } from "./provider-max";
 
-export { ensureRules, loadRules, classifyTransactions, resetSystemRules } from "./store";
+export { ensureRules, loadRules, classifyTransactions, resetSystemRules, coverage } from "./store";
+
+export { classifyWithAi, allowedSlugsForAi, UNINFERABLE } from "./ai/run";
+export type { AiReport } from "./ai/run";
+export { getClassifier, NullClassifier, MockClassifier } from "./ai/index";
+export type { AiVerdict, CategoryClassifier } from "./ai/types";
+
+export { setUserCategory, pendingDecisions } from "./user";
 export type { ClassifyReport } from "./store";

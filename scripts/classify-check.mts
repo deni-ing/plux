@@ -5,6 +5,7 @@
  *   npx tsx scripts/classify-check.mts --user <id> --write               # כותב למסד
  *   npx tsx scripts/classify-check.mts --user <id> --write --force       # מסווג הכל מחדש
  *   npx tsx scripts/classify-check.mts --user <id> --write --resync      # בונה מחדש קטגוריות וכללים
+ *   npx tsx scripts/classify-check.mts --user <id> --write --ai          # מפעיל גם את שכבת ה-AI
  *
  * ברירת המחדל היא הרצה יבשה בכוונה. סיווג הוא הפעולה הראשונה בפרויקט
  * שמשנה נתונים קיימים ולא רק מוסיפה חדשים, ולכן היא לא צריכה להיות זולה
@@ -18,7 +19,8 @@
 import "dotenv/config";
 import { withUser } from "../lib/db/client";
 import { ensureCategories, resetSystemCategories } from "../lib/categories/ensure";
-import { ensureRules, classifyTransactions, resetSystemRules } from "../lib/classify/store";
+import { ensureRules, classifyTransactions, resetSystemRules, coverage } from "../lib/classify/store";
+import { classifyWithAi } from "../lib/classify/ai/run";
 import { allSlugs, isKnownSlug } from "../lib/categories/tree";
 import { SYSTEM_RULES } from "../lib/classify/rules";
 import { MAX_CATEGORY_MAP } from "../lib/classify/provider-max";
@@ -30,6 +32,7 @@ const userId = args[args.indexOf("--user") + 1];
 const write = args.includes("--write");
 const force = args.includes("--force");
 const resync = args.includes("--resync");
+const useAi = args.includes("--ai");
 
 if (!userId || userId.startsWith("--")) {
   console.error("חסר --user <clerk-user-id>");
@@ -84,7 +87,9 @@ const report = await withUser(userId, (db) =>
 
 const pct = report.scanned ? ((report.classified / report.scanned) * 100).toFixed(1) : "0.0";
 console.log(`\n${write ? "נכתב" : "הרצה יבשה"}${force ? " · סיווג מחדש של הכל" : ""}`);
-console.log(`נסרקו ${report.scanned} · סווגו ${report.classified} (${pct}%)`);
+// המכנה כאן הוא "מה שנסרק בהרצה הזו", לא "כל התנועות". בלי הבהרה מפורשת
+// המספר נקרא כנסיגה כשהוא בעצם התקדמות — קרה בדיוק כך ב-21.08.
+console.log(`בהרצה זו: נסרקו ${report.scanned} · סווגו ${report.classified} (${pct}% מהנסרקים)`);
 console.log(`סומנו כהעברה ולא ייספרו כהוצאה: ${report.markedAsTransfer}`);
 
 console.log("\nלפי מקור ההחלטה:");
@@ -106,6 +111,34 @@ if (report.unresolved.length) {
 } else {
   console.log(`\n${G}הכל סווג.${O}`);
 }
+
+// ─────────── 3. שכבת ה-AI ───────────
+
+if (useAi) {
+  const ai = await withUser(userId, (db) =>
+    classifyWithAi(db, userId, { dryRun: !write })
+  );
+  console.log(`\nAI · מסווג: ${ai.classifier}`);
+  if (ai.classifier === "none") {
+    console.log(`  ${D}אין ספק מוגדר. PLUX_AI_PROVIDER=mock לבדיקת הצינור.${O}`);
+  } else {
+    console.log(`  מועמדים ${ai.candidates} · דולגו כלא-ניתנים-להסקה ${ai.skippedUninferable}`);
+    console.log(`  התקבלו ${ai.accepted} · נדחו על ביטחון נמוך ${ai.rejectedLowConfidence}`);
+    console.log(`  שורות שעודכנו: ${ai.rowsUpdated}`);
+    for (const d of ai.decisions.filter((x) => x.slug).slice(0, 15)) {
+      console.log(`    ${D}${d.confidence.toFixed(2)}${O}  ${d.merchant} → ${d.slug}`);
+    }
+  }
+}
+
+// ─────────── 4. הכיסוי הכולל ───────────
+// זה המספר שמעניין. הוא נמדד מול כל התנועות ולא מול מה שנסרק כרגע.
+
+const cov = await withUser(userId, (db) => coverage(db, userId));
+const covPct = cov.total ? ((cov.classified / cov.total) * 100).toFixed(1) : "0.0";
+console.log(`\n${G}כיסוי כולל:${O} ${cov.classified}/${cov.total} (${covPct}% מכלל התנועות)`);
+if (cov.byUser) console.log(`  ${D}מתוכן ${cov.byUser} סווגו ידנית${O}`);
+if (cov.byAi) console.log(`  ${D}מתוכן ${cov.byAi} סווגו על ידי מודל${O}`);
 
 if (!write) console.log(`\n${D}שום דבר לא נכתב. הוסף --write.${O}`);
 

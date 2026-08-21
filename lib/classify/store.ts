@@ -218,3 +218,26 @@ export async function classifyTransactions(
 
   return report;
 }
+
+/**
+ * כיסוי כולל: כמה מהתנועות של המשתמש נושאות קטגוריה.
+ *
+ * << קיים בגלל טעות בדוח. ההרצה השנייה של הסיווג דיווחה "סווגו 3 (33.3%)"
+ *    ונקראה כנסיגה חדה — בזמן שהכיסוי בפועל עלה מ-97.7% ל-98.5%. המכנה
+ *    היה "מה שנשאר לא מסווג", לא "כל התנועות", והאחוז לא אמר זאת.
+ *
+ *    מדד שמחושב על תת-קבוצה משתנה חייב להופיע לצד המדד המוחלט, אחרת הוא
+ *    יוצר תמונה הפוכה מהמציאות. זה לא ניסוח יפה יותר — זו נכונות.
+ */
+export async function coverage(
+  db: Db,
+  userId: string
+): Promise<{ total: number; classified: number; byUser: number; byAi: number }> {
+  const [total, classified, byUser, byAi] = await Promise.all([
+    db.transaction.count({ where: { userId } }),
+    db.transaction.count({ where: { userId, categoryId: { not: null } } }),
+    db.transaction.count({ where: { userId, categorySource: "USER", categoryId: { not: null } } }),
+    db.transaction.count({ where: { userId, categorySource: "AI", categoryId: { not: null } } }),
+  ]);
+  return { total, classified, byUser, byAi };
+}

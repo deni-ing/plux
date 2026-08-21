@@ -27,6 +27,8 @@
 
 import "dotenv/config";
 import { withUser } from "../lib/db/client";
+import { loadRules } from "../lib/classify/store";
+import { classify } from "../lib/classify/engine";
 import { getClassifier, MockClassifier } from "../lib/classify/ai/index";
 import { allowedSlugsForAi } from "../lib/classify/ai/run";
 import { parentSlug } from "../lib/categories/tree";
@@ -60,9 +62,25 @@ const truth = await withUser(userId, async (db) => {
     select: { merchant: true, category: { select: { slug: true } } },
   });
 
+  // ─── סינון קריטי להוגנות המדד ───
+  //
+  // `categorySource = "RULE"` מכסה שתי הכרעות שונות: כלל על שם בית העסק,
+  // ו-מיפוי לפי סוג התנועה שהפרסר קבע (עמלה, זיכוי, חיוב כרטיס).
+  //
+  // רק הראשונה נגזרת מהמחרוזת. השנייה נגזרת ממידע שהמסווג לא רואה
+  // ולעולם לא יראה — "סופר פוש" נראה כמו סופרמרקט, והוא זיכוי.
+  // להשאיר אותה באמת המידה זה למדוד את המסווג על מה שלא נתנו לו.
+  //
+  // הבדיקה: מריצים את המנוע על השם *בלבד* — בלי kind, בלי קטגוריית ספק.
+  // מה שעדיין מוכרע, הוכרע מהמחרוזת.
+  const rules = await loadRules(db, userId);
+
   const map = new Map<string, string>();
   for (const r of rows) {
-    if (r.merchant && r.category?.slug) map.set(r.merchant, r.category.slug);
+    if (!r.merchant || !r.category?.slug) continue;
+    const fromNameAlone = classify({ merchant: r.merchant }, rules);
+    if (!fromNameAlone) continue;
+    map.set(r.merchant, r.category.slug);
   }
   return map;
 });

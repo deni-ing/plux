@@ -1,0 +1,94 @@
+# בדיקת שפיות על כל דחיפה — לפני ש-Vercel מנסה לבנות.
+#
+# למה זה קיים: ביום השלישי ארבעה דיפלויים ברצף נפלו על שגיאת טיפוסים אחת
+# (TS2304). כל אחד מהם לקח כמה דקות של המתנה לפני שהתגלה. הבדיקה כאן רצה
+# על GitHub, לפני ש-Vercel בכלל מתחיל, ועולה שניות.
+#
+# שים לב שאין כאן שום סוד אמיתי. הערכים ב-env הם דמה: הם קיימים רק כדי
+# שהכלים שדורשים משתנה סביבה לא יקרסו בשלב הטעינה. אין חיבור למסד אמיתי,
+# ואין קריאה ל-Clerk. אם יום אחד תרצה טסטים שנוגעים במסד — הם צריכים
+# מסד נפרד לבדיקות, לא את הפרודקשן.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# אם דוחפים פעמיים ברצף לאותו ענף, מבטלים את הריצה הישנה.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # ערכי דמה. מבנה תקין, תוכן חסר משמעות.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
+      # Clerk מפענח את המפתח הפומבי בזמן בנייה: הוא base64 של הדומיין ועוד $.
+      # מחרוזת שרירותית הייתה מפילה את הבנייה בשלב הרינדור. זה base64 תקין
+      # של ci-placeholder.clerk.accounts.dev$ — מבנה נכון, חשבון שלא קיים.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
+      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      SUPABASE_URL: https://ci-placeholder.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+      CRON_SECRET: ci-placeholder
+      # מונע מ-Next לשלוח טלמטריה מהריצה
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # ci ולא install: מתקין בדיוק את מה שכתוב ב-package-lock,
+      # ונכשל אם הנעילה לא מסונכרנת עם package.json.
+      - name: התקנת תלויות
+        run: npm ci
+
+      # postinstall כבר מריץ את זה, אבל הרצה מפורשת שנייה זולה
+      # ומוודאת שהלקוח קיים גם אם ה-cache התערב.
+      - name: יצירת לקוח Prisma
+        run: npx prisma generate
+
+      # זו הבדיקה שהייתה תופסת את התקלה של יום 3.
+      - name: בדיקת טיפוסים
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npx eslint .
+
+      # הבנייה המלאה. תופסת דברים ש-tsc לבדו מפספס: ייבוא של מודול
+      # שרת לתוך רכיב לקוח, קובץ חסר, שגיאת תצורה ב-next.config.
+      - name: בנייה
+        run: npm run build
+
+      # שכבת הגנה אחרונה: אם מישהו יוסיף בטעות סוד עם קידומת NEXT_PUBLIC_
+      # הוא ייחשף לדפדפן. doctor בודק את זה מקומית — כאן זה נאכף בשרת.
+      #
+      # החיפוש הוא על *שימוש* ולא על אזכור, ויש לכך סיבה: scripts/doctor.mts
+      # מחזיק את השמות האלה כמחרוזות ברשימה, כי תפקידו לחפש אותם. חיפוש
+      # נאיבי על השם היה נכשל על הבודק עצמו — בדיקה שמדווחת על עצמה כתקלה
+      # היא בדיקה שיכבו אותה תוך יומיים.
+      - name: אין סודות עם קידומת ציבורית
+        run: |
+          SECRETS='(CLERK_SECRET_KEY|SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|DATABASE_URL|DIRECT_URL)'
+          if grep -rnE "process\.env\.NEXT_PUBLIC_${SECRETS}|NEXT_PUBLIC_${SECRETS}[[:space:]]*=" \
+               --include='*.ts' --include='*.tsx' --include='*.mts' --include='*.js' \
+               --include='*.json' --include='*.env*' \
+               --exclude-dir=node_modules --exclude-dir=.next . ; then
+            echo "::error::נמצא סוד עם קידומת NEXT_PUBLIC_. כל מה שנושא את הקידומת הזו נארז לדפדפן."
+            exit 1
+          fi
+          echo "נקי."

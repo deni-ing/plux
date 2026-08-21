@@ -7,8 +7,9 @@
  *
  * שלוש החלטות שקובעות את ההתנהגות:
  *
- *  1. **הכל בטרנזקציה אחת.** ייבוא שנכשל באמצע לא משאיר חצי דוח במסד.
- *     `withUser` כבר עוטף בטרנזקציה, וזו סיבה נוספת לכך שהיא שם.
+ *  1. **הכתיבה כולה בטרנזקציה אחת.** ייבוא שנכשל באמצע לא משאיר חצי דוח
+ *     במסד. `withUser` כבר עוטף בטרנזקציה, וזו סיבה נוספת לכך שהיא שם.
+ *     הסיווג, לעומת זאת, רץ אחריה ובנפרד — ראו את ההערה ב-`ingestStatement`.
  *
  *  2. **כפילויות מדולגות, לא נדרסות.** `skipDuplicates` נשען על המפתח
  *     הייחודי (userId, dedupHash, occurrence). ייבוא חוזר של אותו קובץ
@@ -20,6 +21,7 @@
 
 import { withUser, type Db } from "../db/client";
 import { isReconciled, type StatementResult } from "../parsers";
+import { runClassification } from "../classify/run";
 
 export type ImportSummary = {
   importJobId: string;
@@ -29,6 +31,8 @@ export type ImportSummary = {
   rowsDuplicate: number;
   reconciled: boolean;
   warnings: string[];
+  /** כמה תנועות קיבלו קטגוריה בעקבות הייבוא הזה. */
+  classified?: number;
 };
 
 export type IngestOptions = {
@@ -42,13 +46,40 @@ export type IngestOptions = {
    */
   userEmail?: string;
   /**
-   * מזהה ה-ImportJob. נקבע מבחוץ כשהקובץ הגולמי נשמר, כי הנתיב באחסון
-   * בנוי סביבו וצריך להיות ידוע לפני שנכתבת השורה שמצביעה עליו.
+   * מזהה שנקבע מראש ל-ImportJob.
+   *
+   * << מסלול ה-HTTP יוצר את המזהה *לפני* הייבוא, כי נתיב הקובץ ב-Storage
+   *    בנוי ממנו: `<userId>/<jobId>/<name>`. בלי זה היו נדרשות שתי כתיבות —
+   *    ליצור job, לשמור קובץ, לעדכן נתיב — ותקלה באמצע הייתה משאירה שורה
+   *    שמצביעה לשומקום. בהרצה מסקריפט אין צורך, ואז המסד מייצר מזהה בעצמו.
    */
   jobId?: string;
 };
 
 export async function ingestStatement(
+  userId: string,
+  result: StatementResult,
+  opts: IngestOptions
+): Promise<ImportSummary> {
+  const summary = await writeStatement(userId, result, opts);
+
+  // הסיווג רץ **אחרי** שהכתיבה הסתיימה ובטרנזקציות נפרדות משלו.
+  // אם הוא נופל, הייבוא עצמו כבר מוגן: השורות במסד, והסיווג יושלם
+  // בהרצה הבאה. ההפך — לגרור את הסיווג לתוך אותה טרנזקציה — היה הופך
+  // כשל סיווג לכשל ייבוא, וזה יחס לא נכון בין השניים.
+  try {
+    const report = await runClassification(userId);
+    summary.classified = report.classified;
+  } catch (err) {
+    summary.warnings.push(
+      `הייבוא הצליח אבל הסיווג נכשל: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  return summary;
+}
+
+async function writeStatement(
   userId: string,
   result: StatementResult,
   opts: IngestOptions
@@ -68,6 +99,7 @@ export async function ingestStatement(
 
     const job = await db.importJob.create({
       data: {
+        // המזהה נקבע מראש רק כשהגיע מבחוץ. אחרת @default(uuid()) עושה את שלו.
         ...(opts.jobId ? { id: opts.jobId } : {}),
         userId,
         storagePath: opts.storagePath,

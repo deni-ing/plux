@@ -180,23 +180,55 @@ model Transaction {
 
 // ─────────────────────────── סיווג ───────────────────────────
 
+// << שלוש משפחות שלא מתערבבות. "כמה הוצאתי" הוא סכום EXPENSE בלבד —
+//    בלי לסנן ידנית משכורות והעברות בכל שאילתה מחדש.
+enum CategoryKind {
+  EXPENSE
+  INCOME
+  TRANSFER
+}
+
 model Category {
-  id       String  @id @default(uuid())
-  userId   String
-  name     String
-  icon     String?
-  color    String?
+  id     String @id @default(uuid())
+  userId String
+
+  // << המזהה היציב. השם משתנה כשהמשתמש עורך, ה-slug לא. כל מיפוי וכל כלל
+  //    בקוד מצביע על ה-slug: "food" לקטגוריית-על, "food.groceries" לתת.
+  slug String
+  name String
+
+  icon  String?
+  color String?
+  kind  CategoryKind @default(EXPENSE)
+
+  // << שכבה שנייה. parentId ריק = קטגוריית-על.
+  parentId String?
+
+  // << קטגוריה מובנית מגיעה מה-seed ומתעדכנת בכל פריסה. קטגוריה שהמשתמש
+  //    יצר היא שלו, וה-seed לא נוגע בה.
   isSystem Boolean @default(false)
   sortKey  Int     @default(0)
 
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Category?      @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Category[]     @relation("CategoryTree")
   transactions Transaction[]
   rules        CategoryRule[]
   budgets      Budget[]
 
-  @@unique([userId, name])
+  // << לא [userId, name]: "אחר" צריך להתקיים גם תחת מזון וגם תחת תחבורה.
+  @@unique([userId, slug])
   @@index([userId])
+  @@index([userId, parentId])
   @@map("categories")
+}
+
+// << מסודר מהחזק לחלש. regex אחרון בכוונה: הוא הכי עוצמתי ולכן הכי מסוכן.
+enum MatchType {
+  EXACT
+  PREFIX
+  CONTAINS
+  REGEX
 }
 
 model CategoryRule {
@@ -205,18 +237,27 @@ model CategoryRule {
   categoryId String
 
   // << התאמה על merchant המנורמל, לא על הגולמי
-  pattern String
-  isRegex Boolean @default(false)
+  pattern   String
+  matchType MatchType @default(CONTAINS)
 
-  // << כלל שנוצר מתיקון של המשתמש מקבל עדיפות על כלל מערכת
-  priority  Int      @default(100)
+  // << כלל שנוצר מתיקון של המשתמש מקבל עדיפות על כלל מערכת. מספר נמוך = חזק.
+  priority Int @default(100)
+
+  // << כלל מערכת מתעדכן בכל seed. כלל של המשתמש — לעולם לא נדרס.
+  isSystem Boolean @default(false)
+
+  // << למה הכלל קיים. נשמע מיותר עד שתסתכל על כלל בן חצי שנה ותנסה לזכור
+  //    למה בדיוק "סדש" הוא דלק ולא סופרמרקט.
+  note String?
+
   createdAt DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, pattern])
+  @@unique([userId, pattern, matchType])
   @@index([userId])
+  @@index([userId, priority])
   @@map("category_rules")
 }
 

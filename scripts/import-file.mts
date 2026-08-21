@@ -15,6 +15,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { basename } from "node:path";
 import "dotenv/config";
+import { inlinePath } from "../lib/storage/paths";
 import { parseStatement, isReconciled, UnsupportedFileError } from "../lib/parsers";
 
 const G = "\x1b[32m", R = "\x1b[31m", Y = "\x1b[33m", D = "\x1b[2m", O = "\x1b[0m";
@@ -82,7 +83,7 @@ for (const file of files) {
   const { ingestStatement } = await import("../lib/import/ingest");
   const summary = await ingestStatement(userId!, result, {
     fileName: basename(file),
-    storagePath: `local:${file}`,
+    storagePath: inlinePath(file),
   });
 
   console.log(

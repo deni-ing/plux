@@ -100,13 +100,15 @@ const FILES: [string, string][] = [
 ];
 
 for (const [path, hint] of FILES) {
-  existsSync(path) ? say("files", "pass", path) : say("files", "fail", `${path} חסר`, hint);
+  if (existsSync(path)) say("files", "pass", path);
+  else say("files", "fail", `${path} חסר`, hint);
 }
 
 function contains(path: string, needle: string, label: string, hint = "") {
   if (!existsSync(path)) return say("files", "fail", `${label} — הקובץ חסר`, hint);
   const ok = readFileSync(path, "utf8").includes(needle);
-  ok ? say("files", "pass", label) : say("files", "fail", label, hint);
+  if (ok) say("files", "pass", label);
+  else say("files", "fail", label, hint);
 }
 
 contains("package.json", '"postinstall"', "package.json מריץ prisma generate", "בלעדיו הבנייה ב-Vercel תיפול: lib/generated לא בגיט");
@@ -116,9 +118,11 @@ for (const dep of ["@clerk/nextjs", "@prisma/adapter-pg", "prisma", "unpdf"]) {
   contains("package.json", `"${dep}"`, `החבילה ${dep} מותקנת`, "npm install " + dep);
 }
 
-existsSync("docs/PROJECT-STATE.md")
-  ? say("files", "pass", "docs/PROJECT-STATE.md")
-  : say("files", "warn", "docs/PROJECT-STATE.md חסר", "מסמך המסירה — בלעדיו שיחה חדשה מתחילה מאפס");
+if (existsSync("docs/PROJECT-STATE.md")) {
+  say("files", "pass", "docs/PROJECT-STATE.md");
+} else {
+  say("files", "warn", "docs/PROJECT-STATE.md חסר", "מסמך המסירה — בלעדיו שיחה חדשה מתחילה מאפס");
+}
 contains("proxy.ts", "clerkMiddleware", "proxy.ts מפעיל את clerkMiddleware");
 contains("app/layout.tsx", "ClerkProvider", "layout עטוף ב-ClerkProvider");
 contains("app/layout.tsx", 'dir="rtl"', "layout מוגדר RTL");
@@ -148,21 +152,27 @@ try {
     SELECT current_user, (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user) AS bypassrls
   `)[0];
 
-  who.current_user === "plux_app"
-    ? say("db", "pass", `מחובר כ-${who.current_user}`)
-    : say("db", "fail", `מחובר כ-${who.current_user}`, "האפליקציה אמורה להתחבר כ-plux_app");
+  if (who.current_user === "plux_app") {
+    say("db", "pass", `מחובר כ-${who.current_user}`);
+  } else {
+    say("db", "fail", `מחובר כ-${who.current_user}`, "האפליקציה אמורה להתחבר כ-plux_app");
+  }
 
-  who.bypassrls === false
-    ? say("db", "pass", "התפקיד אינו עוקף RLS")
-    : say("db", "fail", "התפקיד נושא BYPASSRLS", "כל מדיניות ה-RLS חסרת השפעה במצב הזה");
+  if (who.bypassrls === false) {
+    say("db", "pass", "התפקיד אינו עוקף RLS");
+  } else {
+    say("db", "fail", "התפקיד נושא BYPASSRLS", "כל מדיניות ה-RLS חסרת השפעה במצב הזה");
+  }
 
   const migrations = await prisma.$queryRaw<{ migration_name: string; finished_at: Date | null }[]>`
     SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at
   `;
   const unfinished = migrations.filter((m) => !m.finished_at);
-  unfinished.length === 0
-    ? say("db", "pass", `${migrations.length} מיגרציות הוחלו`, migrations.map((m) => m.migration_name).join(", "))
-    : say("db", "fail", `${unfinished.length} מיגרציות לא הושלמו`, unfinished.map((m) => m.migration_name).join(", "));
+  if (unfinished.length === 0) {
+    say("db", "pass", `${migrations.length} מיגרציות הוחלו`, migrations.map((m) => m.migration_name).join(", "));
+  } else {
+    say("db", "fail", `${unfinished.length} מיגרציות לא הושלמו`, unfinished.map((m) => m.migration_name).join(", "));
+  }
 
   // relrowsecurity = RLS דלוק. relforcerowsecurity = חל גם על בעל הטבלה.
   // בלי השני, בעל הטבלה עוקף את המדיניות בשקט.
@@ -184,9 +194,11 @@ try {
     return !r || !r.enabled || !r.forced || Number(r.policies) === 0;
   });
 
-  broken.length === 0
-    ? say("db", "pass", `RLS דלוק, כפוי ועם מדיניות על ${RLS_TABLES.length} טבלאות`)
-    : say("db", "fail", `RLS חסר או חלקי ב-${broken.length} טבלאות`, broken.join(", "));
+  if (broken.length === 0) {
+    say("db", "pass", `RLS דלוק, כפוי ועם מדיניות על ${RLS_TABLES.length} טבלאות`);
+  } else {
+    say("db", "fail", `RLS חסר או חלקי ב-${broken.length} טבלאות`, broken.join(", "));
+  }
 
   // טבלה חדשה שנוספה לסכימה ונשכחה ב-RLS היא הדליפה הבאה.
   const extra = rls
@@ -212,14 +224,18 @@ try {
   } else {
     const r = parseMaxXlsx(readFileSync(FIXTURE));
     const bad = r.checks.filter((c) => !c.ok);
-    bad.length === 0
-      ? say("parser", "pass", `${r.checks.length} אימותים על ${FIXTURE}`, `${r.transactions.length} תנועות`)
-      : say("parser", "fail", `${bad.length} אימותים נכשלו`, bad.map((c) => `${c.label}: ${c.expected} מול ${c.actual}`).join("; "));
+    if (bad.length === 0) {
+      say("parser", "pass", `${r.checks.length} אימותים על ${FIXTURE}`, `${r.transactions.length} תנועות`);
+    } else {
+      say("parser", "fail", `${bad.length} אימותים נכשלו`, bad.map((c) => `${c.label}: ${c.expected} מול ${c.actual}`).join("; "));
+    }
 
     const pending = r.transactions.filter((t) => t.status === "PENDING").length;
-    pending === 2
-      ? say("parser", "pass", "עסקאות ממתינות מזוהות כ-PENDING")
-      : say("parser", "fail", `זוהו ${pending} ממתינות במקום 2`);
+    if (pending === 2) {
+      say("parser", "pass", "עסקאות ממתינות מזוהות כ-PENDING");
+    } else {
+      say("parser", "fail", `זוהו ${pending} ממתינות במקום 2`);
+    }
   }
 } catch (e) {
   say("parser", "fail", "פרסר MAX נפל", e instanceof Error ? e.message : String(e));
@@ -241,21 +257,27 @@ try {
   ];
   const r = parseLeumiLines(fixture);
   const chain = r.checks.find((c) => c.label.includes("שרשרת"));
-  chain?.ok
-    ? say("parser", "pass", "שרשרת היתרות בלאומי", `${r.transactions.length} תנועות, ${chain.actual}`)
-    : say("parser", "fail", "שרשרת היתרות בלאומי", chain ? `${chain.actual} מתוך ${chain.expected}` : "לא בוצעה");
+  if (chain?.ok) {
+    say("parser", "pass", "שרשרת היתרות בלאומי", `${r.transactions.length} תנועות, ${chain.actual}`);
+  } else {
+    say("parser", "fail", "שרשרת היתרות בלאומי", chain ? `${chain.actual} מתוך ${chain.expected}` : "לא בוצעה");
+  }
 
   const fee = r.transactions.find((t) => t.kind === "FEE");
   const inbound = r.transactions.find((t) => t.kind === "TRANSFER_IN");
   const card = r.transactions.find((t) => t.kind === "CARD_SETTLEMENT");
 
-  fee?.amount === "-50.00" && inbound?.amount === "300.00"
-    ? say("parser", "pass", "הסימן נגזר מהיתרות ולא ממיקום עמודה")
-    : say("parser", "fail", "הסימן שגוי", `עמלה=${fee?.amount} זכות=${inbound?.amount}`);
+  if (fee?.amount === "-50.00" && inbound?.amount === "300.00") {
+    say("parser", "pass", "הסימן נגזר מהיתרות ולא ממיקום עמודה");
+  } else {
+    say("parser", "fail", "הסימן שגוי", `עמלה=${fee?.amount} זכות=${inbound?.amount}`);
+  }
 
-  card && card.countsAsSpending === false
-    ? say("parser", "pass", "חיוב אשראי מוחרג מהוצאות", "מונע ספירה כפולה מול קובץ MAX")
-    : say("parser", "fail", "חיוב אשראי לא הוחרג", "יגרום לספירה כפולה של ההוצאות");
+  if (card && card.countsAsSpending === false) {
+    say("parser", "pass", "חיוב אשראי מוחרג מהוצאות", "מונע ספירה כפולה מול קובץ MAX");
+  } else {
+    say("parser", "fail", "חיוב אשראי לא הוחרג", "יגרום לספירה כפולה של ההוצאות");
+  }
 } catch (e) {
   say("parser", "fail", "פרסר לאומי נפל", e instanceof Error ? e.message : String(e));
 }
@@ -273,33 +295,41 @@ for (const secret of [".env", ".env.local"]) {
     const rule = git("check-ignore", "-v", secret);
     say("git", "pass", `${secret} חסום`, rule);
   } catch {
-    existsSync(secret)
-      ? say("git", "fail", `${secret} אינו חסום`, "הקובץ קיים ועלול להיכנס ל-commit הבא")
-      : say("git", "pass", `${secret} לא קיים`);
+    if (existsSync(secret)) {
+      say("git", "fail", `${secret} אינו חסום`, "הקובץ קיים ועלול להיכנס ל-commit הבא");
+    } else {
+      say("git", "pass", `${secret} לא קיים`);
+    }
   }
 }
 
 try {
   const dirty = git("status", "--porcelain").split("\n").filter(Boolean);
-  dirty.length === 0
-    ? say("git", "pass", "עץ העבודה נקי")
-    : say("git", "warn", `${dirty.length} קבצים לא שמורים`, dirty.slice(0, 5).join(", "));
+  if (dirty.length === 0) {
+    say("git", "pass", "עץ העבודה נקי");
+  } else {
+    say("git", "warn", `${dirty.length} קבצים לא שמורים`, dirty.slice(0, 5).join(", "));
+  }
 } catch { say("git", "warn", "לא ניתן לקרוא את מצב עץ העבודה"); }
 
 try {
   const ahead = git("rev-list", "--count", "@{u}..HEAD");
-  ahead === "0"
-    ? say("git", "pass", "הכל נדחף ל-origin")
-    : say("git", "warn", `${ahead} commits לא נדחפו`, "git push");
+  if (ahead === "0") {
+    say("git", "pass", "הכל נדחף ל-origin");
+  } else {
+    say("git", "warn", `${ahead} commits לא נדחפו`, "git push");
+  }
 } catch { say("git", "warn", "אין remote מוגדר או שאין upstream לענף"); }
 
 try {
   const tracked = git("ls-files").split("\n");
   const leaked = tracked.filter((f) => /\.(xlsx|pdf)$/i.test(f) && !f.startsWith("tests/fixtures/"));
-  leaked.length === 0
-    ? say("git", "pass", "אין דפי חשבון או קובצי אקסל מנוהלים בגיט")
-    : say("git", "fail", `${leaked.length} קבצים חשודים בגיט`, leaked.join(", "));
-} catch (e) {
+  if (leaked.length === 0) {
+    say("git", "pass", "אין דפי חשבון או קובצי אקסל מנוהלים בגיט");
+  } else {
+    say("git", "fail", `${leaked.length} קבצים חשודים בגיט`, leaked.join(", "));
+  }
+} catch {
   say("git", "warn", "לא ניתן לקרוא את רשימת הקבצים בגיט");
 }
 

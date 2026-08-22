@@ -44,3 +44,7 @@ next-env.d.ts
 /lib/generated
 
 !.env.template
+
+# פלט של סקריפטים — מכיל תנועות אמיתיות. לא נכנס לגיט.
+/reports/
+test.out

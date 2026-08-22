@@ -280,3 +280,16 @@ export function kindOf(slug: string): CategoryKind | null {
   }
   return null;
 }
+
+/** השם המובנה של slug. משמש בדוחות כשאין שם מהמסד. */
+export function nameOf(slug: string): string | null {
+  for (const group of CATEGORY_TREE) {
+    for (const cat of group.categories) {
+      if (cat.slug === slug) return cat.name;
+      for (const child of cat.children ?? []) {
+        if (child.slug === slug) return child.name;
+      }
+    }
+  }
+  return null;
+}

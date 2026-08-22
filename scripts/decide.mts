@@ -84,7 +84,7 @@ for (const p of pending) {
 }
 
 console.log(`\n${D}להכרעה:${O}`);
-console.log(`  npx tsx scripts/decide.mts --user ${userId} --merchant "${pending[0].merchant}" --slug <slug>`);
+console.log(`  npx tsx scripts/decide.mts --user ${userId} --merchant "${pending[0].merchant}" --slug SLUG`);
 console.log(`${D}לרשימת הקטגוריות: הוסף --slugs${O}`);
 
 process.exit(0);

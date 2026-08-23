@@ -199,8 +199,32 @@ describe("חיוב שהופסק", () => {
 
   it("stoppedCharges מחזיר רק את מי שהפסיק", () => {
     const charges = findRecurring(GYM, { asOf: utcDate(2026, 10, 1) });
-    assert.equal(stoppedCharges(charges).length, 1);
-    assert.equal(stoppedCharges(findRecurring(GYM, { asOf: utcDate(2026, 8, 22) })).length, 0);
+    assert.equal(stoppedCharges(charges).charges.length, 1);
+    assert.equal(
+      stoppedCharges(findRecurring(GYM, { asOf: utcDate(2026, 8, 22) })).charges.length,
+      0
+    );
+  });
+
+  /**
+   * מהנתונים האמיתיים: ‎₪6 ממכונת שתייה ו-‎₪14 מהסופר הופיעו ברשימת
+   * "הפסיקו להיגבות" וקברו בתוכה שכר דירה של ‎₪3,000 שנעלם חודשיים.
+   */
+  it("קניות קטנות ולא סדירות אינן 'חיוב שהופסק'", () => {
+    const noise = [4, 5, 6].map((m) => t("מכונת שתייה", [2026, m, 18], "-6.00"));
+    const rent = [4, 5, 6].map((m) =>
+      t("שכר דירה", [2026, m, 1], "-3000.00", { categorySlug: "housing.rent" })
+    );
+    const res = stoppedCharges(findRecurring([...noise, ...rent], { asOf: utcDate(2026, 8, 17) }));
+    assert.deepEqual(res.charges.map((c) => c.merchant), ["שכר דירה"]);
+    assert.equal(res.filtered, 1);
+  });
+
+  it("מה שסונן מדווח ולא נעלם בשקט", () => {
+    const noise = [4, 5, 6].map((m) => t("מכונת שתייה", [2026, m, 18], "-6.00"));
+    const res = stoppedCharges(findRecurring(noise, { asOf: utcDate(2026, 8, 17) }));
+    assert.deepEqual(res.charges, []);
+    assert.equal(res.filtered, 1);
   });
 });
 

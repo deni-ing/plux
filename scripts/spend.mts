@@ -29,6 +29,7 @@ import {
 import { breakdownByCategory, compareBreakdowns } from "../lib/analytics/spend";
 import { feeReport, recurringFees } from "../lib/analytics/fees";
 import { findRecurring, stoppedCharges, worthReviewing } from "../lib/analytics/recurring";
+import { forecastMonth } from "../lib/analytics/forecast";
 import { categoryNames, loadMonths } from "../lib/analytics/load";
 
 const G = "\x1b[32m", R = "\x1b[31m", Y = "\x1b[33m", B = "\x1b[1m", D = "\x1b[2m", O = "\x1b[0m";
@@ -107,9 +108,10 @@ const asOf = current.coverage.lastDataAt ?? period.to;
 const charges = findRecurring(txns, { basis, asOf });
 const review = worthReviewing(charges);
 const stopped = stoppedCharges(charges);
+const forecast = forecastMonth(txns, current, charges, { basis });
 
 if (asJson) {
-  console.log(JSON.stringify({ current, comparison: cmp, fees, recurring, charges }, null, 2));
+  console.log(JSON.stringify({ current, comparison: cmp, fees, recurring, charges, forecast }, null, 2));
   await prisma.$disconnect();
   process.exit(0);
 }
@@ -240,13 +242,40 @@ if (charges.length) {
     console.log(`${D}וגם עסקה שפוצלה לתשלומים — ההבדל אינו בנתון, והוא שלך לקבוע.${O}`);
   }
 
-  if (stopped.length) {
+  if (stopped.charges.length) {
     console.log(`\n${B}הפסיקו להיגבות${O}  ${D}(אין חיוב מעל מחזור וחצי)${O}`);
     console.log("─".repeat(52));
-    for (const c of stopped) {
+    for (const c of stopped.charges) {
       console.log(`${c.merchant.padEnd(26)} ${money(c.amount)}  ${D}אחרון: ${isoDay(c.lastSeenAt)}${O}`);
     }
   }
+  if (stopped.filtered > 0) {
+    console.log(
+      `${D}(${stopped.filtered} חיובים שנפסקו לא הוצגו — קטנים מדי או לא סדירים)${O}`
+    );
+  }
+}
+
+if (forecast.daysRemaining > 0) {
+  console.log(`\n${B}תחזית לסוף ${period.label}${O}`);
+  console.log("─".repeat(52));
+  console.log(`יצא עד כה   ${money(forecast.spent)}`);
+  if (forecast.upcoming.length) {
+    console.log(`${D}ידוע שייגבה:${O}`);
+    for (const c of forecast.upcoming) {
+      const tag = c.declared ? `${G}הוראת קבע${O}` : `${D}${Math.round(c.confidence * 100)}%${O}`;
+      console.log(`  ${c.merchant.padEnd(24)} ${money(c.amount)}  ${D}${c.dueAt}${O}  ${tag}`);
+    }
+  }
+  console.log("─".repeat(52));
+  console.log(`${B}רצפה       ${money(forecast.floor)}${O}  ${D}לא ייתכן פחות${O}`);
+  console.log(`${B}צפוי       ${money(forecast.expected)}${O}`);
+  console.log(`${D}תקרה       ${money(forecast.ceiling)}${O}`);
+  console.log(
+    `${forecast.confidence === "low" ? R : forecast.confidence === "medium" ? Y : G}ביטחון: ${forecast.confidence}${O}  ${D}· ${forecast.daysRemaining} ימים נותרו${O}`
+  );
+  console.log(`\n${D}על מה זה נשען:${O}`);
+  for (const a of forecast.assumptions) console.log(`  ${D}· ${a}${O}`);
 }
 
 console.log();

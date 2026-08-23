@@ -255,9 +255,36 @@ if (charges.length === 0) {
   }
 }
 
-// ─────────────────────── 5. עמלות ───────────────────────
+// ─────────────────────── 5. תחזית ───────────────────────
 
-section("5 · עמלות");
+section("5 · תחזית");
+
+const fc = last?.forecast ?? null;
+if (!fc) meh("אין תחזית בסנפשוט האחרון");
+else {
+  if (fc.floor <= fc.expected && fc.expected <= fc.ceiling) ok("רצפה ≤ צפוי ≤ תקרה");
+  else bad("הטווח אינו מסודר", `${fc.floor} / ${fc.expected} / ${fc.ceiling}`);
+
+  // הרצפה היא עובדה ‎+‎ ידוע. היא לא יכולה להיות קטנה ממה שכבר יצא.
+  if (fc.floor >= fc.spent) ok("הרצפה אינה קטנה ממה שכבר יצא");
+  else bad("הרצפה קטנה מההוצאה בפועל", "זה בלתי אפשרי");
+
+  if (fc.assumptions.length > 0) ok(`${fc.assumptions.length} הנחות נשמרו עם המספרים`);
+  else bad("תחזית בלי הנחות", "מספר בלי הקשר");
+
+  if (fc.daysRemaining === 0) {
+    ok("החודש הסתיים — התחזית היא ההוצאה בפועל");
+  } else {
+    console.log(`  ${D}רצפה ${formatILS(fc.floor)} · צפוי ${formatILS(fc.expected)} · תקרה ${formatILS(fc.ceiling)} · ביטחון ${fc.confidence}${O}`);
+    if (fc.upcoming.length) {
+      console.log(`  ${D}${fc.upcoming.length} חיובים ידועים שעוד צפויים${O}`);
+    }
+  }
+}
+
+// ─────────────────────── 6. עמלות ───────────────────────
+
+section("6 · עמלות");
 
 if (!last) meh("אין חודש אחרון לבדוק");
 else if (last.fees.count === 0) ok("אין עמלות בחודש האחרון");

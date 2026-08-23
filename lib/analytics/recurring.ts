@@ -258,7 +258,33 @@ export function worthReviewing(
     .sort((a, b) => b.annualized - a.annualized);
 }
 
-/** חיובים שהפסיקו להיגבות — כנראה בוטלו. */
-export function stoppedCharges(charges: readonly RecurringCharge[]): RecurringCharge[] {
-  return charges.filter((c) => c.stopped === true).sort((a, b) => b.annualized - a.annualized);
+/**
+ * חיובים שהפסיקו להיגבות — כנראה בוטלו.
+ *
+ * << הגרסה הראשונה החזירה כל חיוב עם `stopped === true`, והתוצאה על
+ *    הנתונים האמיתיים הייתה רשימה של ‎₪6 ממכונת שתייה, ‎₪14 מהסופר
+ *    ו-‎₪38 ממעדנייה. **דברים שמעולם לא היו מנוי לא יכולים "להפסיק"** —
+ *    הם פשוט לא נקנו החודש, וזו לא ידיעה.
+ *
+ *    ובאמצע הרעש הזה נקברה השורה שכן חשובה: שכר דירה של ‎₪3,000 שלא
+ *    נגבה חודשיים. **רשימה שמערבבת אות ברעש מסתירה את האות** — ולכן
+ *    אותו סינון איכות שיש ל-`worthReviewing` חל גם כאן.
+ *
+ * מה שסונן מדווח ב-`filtered` ולא נעלם בשקט: סף שאי אפשר לראות נראה
+ * כמו "לא נמצא כלום".
+ */
+export function stoppedCharges(
+  charges: readonly RecurringCharge[],
+  options: { minAnnual?: Agorot; minConfidence?: number } = {}
+): { charges: RecurringCharge[]; filtered: number } {
+  const minAnnual = options.minAnnual ?? 30000; // ₪300 בשנה
+  const minConfidence = options.minConfidence ?? 0.6;
+
+  const all = charges.filter((c) => c.stopped === true);
+  const kept = all
+    .filter((c) => c.cadence !== "irregular")
+    .filter((c) => c.annualized >= minAnnual && c.confidence >= minConfidence)
+    .sort((a, b) => b.annualized - a.annualized);
+
+  return { charges: kept, filtered: all.length - kept.length };
 }

@@ -30,6 +30,7 @@ import {
   type Period,
 } from "./period";
 import { findRecurring } from "./recurring";
+import { forecastMonth } from "./forecast";
 import { buildSnapshot, isCurrent, type SnapshotFacts } from "./snapshot";
 import { breakdownByCategory, compareBreakdowns } from "./spend";
 
@@ -107,13 +108,19 @@ export function computeMonth(
     : prevFull;
   const previous = breakdownByCategory(txns, prev, { basis, names });
 
+  // << החיובים החוזרים מחושבים על כל הטווח שנטען, לא על החודש: דפוס
+  //    חוזר אינו נראה בחודש אחד מעצם הגדרתו.
+  const recurring = findRecurring(txns, {
+    basis,
+    asOf: current.coverage.lastDataAt ?? period.to,
+  });
+
   return buildSnapshot({
     breakdown: current,
     comparison: compareBreakdowns(current, previous),
     fees: feeReport(txns, period, { basis, breakdown: current }),
-    // << החיובים החוזרים מחושבים על כל הטווח שנטען, לא על החודש: דפוס
-    //    חוזר אינו נראה בחודש אחד מעצם הגדרתו.
-    recurring: findRecurring(txns, { basis, asOf: current.coverage.lastDataAt ?? period.to }),
+    recurring,
+    forecast: forecastMonth(txns, current, recurring, { basis }),
   });
 }
 

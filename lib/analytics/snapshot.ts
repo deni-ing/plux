@@ -36,6 +36,7 @@ import { isoDay, type Basis, type Period } from "./period";
 import type { Breakdown, CategoryLine, Comparison } from "./spend";
 import type { FeeReport } from "./fees";
 import type { RecurringCharge } from "./recurring";
+import type { Forecast } from "./forecast";
 
 /**
  * להעלות בכל שינוי שמשנה **משמעות** של שדה, לא בכל תוספת.
@@ -43,11 +44,14 @@ import type { RecurringCharge } from "./recurring";
  *   1  — המבנה הראשון. הוצאה חיובית, אגורות, חלון חצי־פתוח.
  *   2  — `period.partial` שינה משמעות: "הנתונים נגמרים בתוך החודש"
  *        במקום "אין תנועה ביום האחרון". שדה זהה, תשובה אחרת — ובדיוק
- *        בשביל זה המספר הזה קיים. השינוי הראשון אחרי שנבנה המנגנון
- *        היה שינוי משמעות, וללא ההעלאה 13 סנפשוטים היו ממשיכים
+ *        בשביל זה המספר הזה קיים. בלי ההעלאה, 13 סנפשוטים היו ממשיכים
  *        להחזיר `partial: true` על חודשים שלמים.
+ *   3  — נוסף `forecast`. **תוספת שדה חובה היא שינוי משמעות מנקודת
+ *        המבט של הקורא**: קוד שקורא `facts.forecast` יקבל undefined
+ *        מסנפשוט ישן, והטיפוס מבטיח לו שלא. לכן מעלים גם על תוספת —
+ *        בניגוד למה שכתוב בשורה הראשונה כאן, שהייתה חצי נכונה.
  */
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
 
 /**
  * `children` תמיד קיים, גם כשהוא ריק.
@@ -149,6 +153,9 @@ export type SnapshotFacts = {
     nextDueAt: string;
     stopped: boolean | null;
   }[];
+
+  /** תחזית סוף חודש. `null` כשלא סופקה. */
+  forecast: Forecast | null;
 };
 
 function toFact(line: CategoryLine, depth = 0): CategoryFact {
@@ -168,6 +175,7 @@ export type BuildInput = {
   comparison?: Comparison | null;
   fees: FeeReport;
   recurring: readonly RecurringCharge[];
+  forecast?: Forecast | null;
   /** כמה שורות "מה השתנה" לשמור. */
   moversLimit?: number;
 };
@@ -176,7 +184,7 @@ export type BuildInput = {
  * בונה את מבנה העובדות. פונקציה טהורה — אין כאן מסד ואין שעון.
  */
 export function buildSnapshot(input: BuildInput): SnapshotFacts {
-  const { breakdown: b, comparison, fees, recurring } = input;
+  const { breakdown: b, comparison, fees, recurring, forecast } = input;
   const moversLimit = input.moversLimit ?? 8;
 
   const categories = b.categories.map((c) => toFact(c));
@@ -256,6 +264,8 @@ export function buildSnapshot(input: BuildInput): SnapshotFacts {
       nextDueAt: isoDay(c.nextDueAt),
       stopped: c.stopped,
     })),
+
+    forecast: forecast ?? null,
   };
 }
 

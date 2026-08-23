@@ -28,6 +28,8 @@ export type UserCategoryResult = {
   slug: string;
   rowsUpdated: number;
   ruleCreated: boolean;
+  /** כמה שורות USER על קטגוריה אחרת נדרסו. */
+  overwroteManual: number;
 };
 
 export async function setUserCategory(
@@ -55,11 +57,16 @@ export async function setUserCategory(
 
   // כל התנועות של אותו בית עסק. תנועה שכבר סומנה USER על קטגוריה *אחרת*
   // נשארת כפי שהיא — המשתמש כבר החליט עליה משהו ספציפי.
+  // << ההגנה שהייתה כאן מנעה מאדם לשנות את דעתו, לא ממכונה לדרוס
+  //    אדם. מה שנדרס מדווח, כדי שזה לא יקרה בשקט.
+  const overwroteManual = await db.transaction.count({
+    where: { userId, merchant, categorySource: "USER", NOT: { categoryId } },
+  });
+
   const res = await db.transaction.updateMany({
     where: {
       userId,
       merchant,
-      OR: [{ NOT: { categorySource: "USER" } }, { categoryId }],
     },
     data: { categoryId, categorySource: "USER", countsAsSpending: counts },
   });
@@ -95,7 +102,7 @@ export async function setUserCategory(
     }
   }
 
-  return { merchant, slug, rowsUpdated: res.count, ruleCreated };
+  return { merchant, slug, rowsUpdated: res.count, ruleCreated, overwroteManual };
 }
 
 /**

@@ -157,6 +157,14 @@ export type BreakdownOptions = {
   basis?: Basis;
   /** שמות קטגוריות מהמסד, לפי slug. גובר על השם שבעץ. */
   names?: ReadonlyMap<string, string>;
+  /**
+   * התאריך שבו נגמרים הנתונים **בכלל**, לא רק בתקופה הזו.
+   *
+   * << אם לא סופק, הוא נגזר מהתנועות שהועברו — ולכן חשוב להעביר טווח
+   *    רחב מהתקופה. קורא שטוען חודש אחד בלבד לא יכול לדעת אם הנתונים
+   *    נגמרו בו או ממשיכים אחריו, ויסמן כל חודש כחלקי.
+   */
+  dataEndsAt?: Date | null;
 };
 
 function displayName(
@@ -220,6 +228,16 @@ export function breakdownByCategory(
   let fallbackDates = 0;
   let lastDay = 0;
   let lastDataAt: Date | null = null;
+
+  // << נסרק על **כל** התנועות, גם מחוץ לתקופה. זו כל הנקודה: רק מי
+  //    שרואה מעבר לחודש יכול לדעת אם הנתונים נגמרו בתוכו.
+  let globalLast: Date | null = options.dataEndsAt ?? null;
+  if (options.dataEndsAt === undefined) {
+    for (const t of txns) {
+      const when = effectiveDate(t, basis);
+      if (globalLast === null || when.getTime() > globalLast.getTime()) globalLast = when;
+    }
+  }
 
   for (const t of txns) {
     const when = effectiveDate(t, basis);
@@ -320,6 +338,33 @@ export function breakdownByCategory(
   const classifiedAmount = expense - unclassified.total;
   const classifiedCount = txnCount - unclassified.count;
 
+  /**
+   * חודש חלקי הוא חודש **שהנתונים נגמרים בתוכו**.
+   *
+   * << ההגדרה הראשונה שלי הייתה "התנועה האחרונה בחודש אינה ביום
+   *    האחרון", והיא הייתה שגויה: היא סימנה את אוקטובר 2025 כחלקי רק
+   *    כי ב-31 בו לא הייתה קנייה. הבדיקה תפסה שבעה חודשים כאלה.
+   *
+   *    **"אין תנועה ביום האחרון" ו-"אין נתונים על היום האחרון" הם שני
+   *    דברים שונים, והראשון הוא מידע לגיטימי.** ההבחנה ביניהם דורשת
+   *    להסתכל אל מחוץ לחודש — ולכן globalLast.
+   */
+  const endsInside =
+    globalLast !== null &&
+    globalLast.getTime() >= period.from.getTime() &&
+    globalLast.getTime() < period.to.getTime();
+
+  const daysCovered =
+    globalLast === null
+      ? 0
+      : endsInside
+        ? dayOfPeriod(globalLast, period)
+        : globalLast.getTime() >= period.to.getTime()
+          ? totalDays
+          : 0;
+
+  const partial = daysCovered > 0 && daysCovered < totalDays;
+
   return {
     period,
     basis,
@@ -344,10 +389,11 @@ export function breakdownByCategory(
     excluded: { transfers, transfersTotal, outOfPeriod },
     fallbackDates,
     coverage: {
+      /** התנועה האחרונה **בתקופה הזו**. מידע, לא בסיס לחלקיות. */
       lastDataAt,
-      daysCovered: lastDay,
+      daysCovered,
       daysInPeriod: totalDays,
-      partial: lastDay > 0 && lastDay < totalDays,
+      partial,
     },
     classification: {
       count: {

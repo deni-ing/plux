@@ -88,6 +88,47 @@ describe("חודש חלקי", () => {
     assert.equal(b.coverage.partial, false);
   });
 
+  /**
+   * הבאג שהבדיקה על הנתונים האמיתיים תפסה: שבעה חודשים מ-2025 סומנו
+   * כחלקיים רק כי ביום האחרון שלהם לא הייתה קנייה. **"לא קניתי ב-31
+   * באוקטובר" הוא מידע לגיטימי, לא נתון חסר** — וההבחנה דורשת להסתכל
+   * אל מחוץ לחודש.
+   */
+  it("חודש ישן שנגמר בלי קנייה ביום האחרון אינו חלקי", () => {
+    const txns = [
+      t("אוקטובר", [2025, 10, 30], "-100.00"),
+      t("נובמבר", [2025, 11, 4], "-100.00"),
+      t("אוגוסט", [2026, 8, 17], "-100.00"),
+    ];
+    const oct = breakdownByCategory(txns, monthPeriod(2025, 10));
+    assert.equal(isoDay(oct.coverage.lastDataAt!), "2025-10-30");
+    assert.equal(oct.coverage.partial, false);
+    assert.equal(oct.coverage.daysCovered, 31);
+
+    // ורק החודש שבו הנתונים באמת נגמרים כן
+    const aug = breakdownByCategory(txns, monthPeriod(2026, 8));
+    assert.equal(aug.coverage.partial, true);
+    assert.equal(aug.coverage.daysCovered, 17);
+  });
+
+  it("גם חודש ריק באמצע הטווח אינו חלקי", () => {
+    const txns = [
+      t("לפני", [2026, 5, 3], "-100.00"),
+      t("אחרי", [2026, 8, 17], "-100.00"),
+    ];
+    const jun = breakdownByCategory(txns, monthPeriod(2026, 6));
+    assert.equal(jun.coverage.lastDataAt, null);
+    assert.equal(jun.coverage.daysCovered, 30);
+    assert.equal(jun.coverage.partial, false);
+    assert.equal(jun.expense, 0);
+  });
+
+  it("‏dataEndsAt מפורש גובר על הנגזר מהתנועות", () => {
+    const b = breakdownByCategory(partial, AUG, { dataEndsAt: utcDate(2026, 8, 31) });
+    assert.equal(b.coverage.partial, false);
+    assert.equal(b.coverage.daysCovered, 31);
+  });
+
   it("חודש ריק אינו חלקי — הוא ריק", () => {
     const b = breakdownByCategory([], AUG);
     assert.equal(b.coverage.lastDataAt, null);

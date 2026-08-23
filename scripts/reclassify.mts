@@ -28,7 +28,7 @@ import { prisma, withUser } from "../lib/db/client";
 import { isKnownSlug, kindOf, nameOf } from "../lib/categories/tree";
 import { setUserCategory } from "../lib/classify/user";
 
-const G = "\x1b[32m", R = "\x1b[31m", Y = "\x1b[33m", B = "\x1b[1m", D = "\x1b[2m", O = "\x1b[0m";
+const G = "\x1b[32m", Y = "\x1b[33m", B = "\x1b[1m", D = "\x1b[2m", O = "\x1b[0m";
 
 const args = process.argv.slice(2);
 const val = (flag: string) => {

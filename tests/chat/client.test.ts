@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { runChat, type ChatClient } from "../../lib/chat/client";
+import { runChat, streamChat, type ChatClient, type StreamChatClient } from "../../lib/chat/client";
 
 /**
  * ‏`Db` האמיתי לא נחוץ כאן בכלל: כל טסט מזריק גם client מזויף וגם
@@ -171,5 +171,152 @@ describe("runChat — לולאת הכלים", () => {
     assert.equal(calls, 6); // MAX_TOOL_ROUNDS
     assert.ok(result.reply.includes("יותר מדי שלבים"));
     assert.deepEqual(result.turns[result.turns.length - 1], { type: "limit", rounds: 6 });
+  });
+});
+
+/** בונה סיבוב מזויף של stream(): מזרים deltas ואז פותר עם ההודעה הסופית. */
+function fakeStreamRound(
+  textDeltas: string[],
+  finalMessage: { content: unknown[]; stop_reason: string | null }
+) {
+  return {
+    on(_event: "text", cb: (delta: string) => void) {
+      for (const d of textDeltas) cb(d);
+    },
+    finalMessage: async () => finalMessage as never,
+  };
+}
+
+describe("streamChat — גרסת ההזרמה", () => {
+  it("מזרימה כל delta ל-onText, ומחזירה את הטקסט המחובר כתשובה", async () => {
+    const client: StreamChatClient = {
+      messages: {
+        stream: () =>
+          fakeStreamRound(["שלום", ", ", "איך אפשר לעזור?"], {
+            content: [{ type: "text", text: "שלום, איך אפשר לעזור?" }],
+            stop_reason: "end_turn",
+          }),
+      },
+    };
+
+    const received: string[] = [];
+    const runTool = async () => {
+      throw new Error("לא אמור להיקרא");
+    };
+
+    const result = await streamChat(
+      DB,
+      USER,
+      [{ role: "user", content: "היי" }],
+      (delta) => received.push(delta),
+      { client, runTool: runTool as never }
+    );
+
+    assert.deepEqual(received, ["שלום", ", ", "איך אפשר לעזור?"]);
+    assert.equal(result.reply, "שלום, איך אפשר לעזור?");
+  });
+
+  it("טקסט לפני בקשת כלי מוזרם גם הוא, אבל רק טקסט הסיבוב האחרון הופך לתשובה", async () => {
+    let round = 0;
+    const client: StreamChatClient = {
+      messages: {
+        stream: () => {
+          round++;
+          if (round === 1) {
+            return fakeStreamRound(["בודק את הנתונים..."], {
+              content: [
+                { type: "text", text: "בודק את הנתונים..." },
+                { type: "tool_use", id: "t1", name: "getMonthlyReport", input: {} },
+              ],
+              stop_reason: "tool_use",
+            });
+          }
+          return fakeStreamRound(["הוצאת 3,200 ₪."], {
+            content: [{ type: "text", text: "הוצאת 3,200 ₪." }],
+            stop_reason: "end_turn",
+          });
+        },
+      },
+    };
+
+    const received: string[] = [];
+    const runTool = async () => ({ tool: "getMonthlyReport", facts: {} });
+
+    const result = await streamChat(
+      DB,
+      USER,
+      [{ role: "user", content: "כמה הוצאתי?" }],
+      (delta) => received.push(delta),
+      { client, runTool: runTool as never }
+    );
+
+    // שני הטקסטים הגיעו למסך, בסדר שהם נוצרו בו.
+    assert.deepEqual(received, ["בודק את הנתונים...", "הוצאת 3,200 ₪."]);
+    // אבל התשובה הסופית (למשל, לשמירה) היא רק מה שנאמר אחרי שהכלי חזר.
+    assert.equal(result.reply, "הוצאת 3,200 ₪.");
+    assert.deepEqual(
+      result.turns.map((t) => t.type),
+      ["text", "tool_call", "tool_result", "text"]
+    );
+  });
+
+  it("כלי שזורק לא מפיל את ההזרמה", async () => {
+    let round = 0;
+    const client: StreamChatClient = {
+      messages: {
+        stream: () => {
+          round++;
+          if (round === 1) {
+            return fakeStreamRound([], {
+              content: [{ type: "tool_use", id: "t1", name: "findTransactions", input: {} }],
+              stop_reason: "tool_use",
+            });
+          }
+          return fakeStreamRound(["לא מצאתי נתונים."], {
+            content: [{ type: "text", text: "לא מצאתי נתונים." }],
+            stop_reason: "end_turn",
+          });
+        },
+      },
+    };
+    const runTool = async () => {
+      throw new Error("תקלת מסד");
+    };
+
+    const result = await streamChat(DB, USER, [{ role: "user", content: "תראה תנועות" }], () => {}, {
+      client,
+      runTool: runTool as never,
+    });
+
+    assert.equal(result.reply, "לא מצאתי נתונים.");
+    const toolResult = result.turns.find((t) => t.type === "tool_result");
+    assert.deepEqual(toolResult, { type: "tool_result", name: "findTransactions", result: { error: "תקלת מסד" } });
+  });
+
+  it("תקרת הסיבובים מזרימה הודעת גבול במקום להיתקע", async () => {
+    let calls = 0;
+    const client: StreamChatClient = {
+      messages: {
+        stream: () => {
+          calls++;
+          return fakeStreamRound([], {
+            content: [{ type: "tool_use", id: `t${calls}`, name: "listAvailableMonths", input: {} }],
+            stop_reason: "tool_use",
+          });
+        },
+      },
+    };
+    const runTool = async () => ({ tool: "listAvailableMonths", months: [] });
+
+    const received: string[] = [];
+    const result = await streamChat(DB, USER, [{ role: "user", content: "שאלה" }], (d) => received.push(d), {
+      client,
+      runTool: runTool as never,
+    });
+
+    assert.equal(calls, 6);
+    assert.equal(received.length, 1);
+    assert.ok(received[0].includes("יותר מדי שלבים"));
+    assert.equal(result.reply, received[0]);
   });
 });

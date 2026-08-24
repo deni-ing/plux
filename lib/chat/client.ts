@@ -87,9 +87,37 @@ export type ChatClient = {
 };
 
 function defaultClient(): ChatClient {
-  // << ה-cast היחיד בקובץ. הוא בדיוק הגבול שמתואר למעלה: המחלקה
+  // << ה-cast היחיד בקובץ עד כאן. הוא בדיוק הגבול שמתואר למעלה: המחלקה
   //    האמיתית עונה יותר ממה ש-ChatClient דורש, לא פחות.
   return new Anthropic() as unknown as ChatClient;
+}
+
+/**
+ * מה ש-`streamChat` צריך מהלקוח. סעיף 7.3.
+ *
+ * ‏`stream()` מחזיר אובייקט שמפרסם אירועי טקסט תוך כדי קבלה, ומבטיח
+ * הודעה סופית מלאה (content + stop_reason) — בדיוק כמו התשובה הרגילה
+ * של `create`, רק אחרי שהטקסט כבר יצא החוצה חתיכה-חתיכה. הצורה הזו
+ * מגובה בדוגמאות מהתיעוד הרשמי (helpers.md), לא בניחוש — אבל היא
+ * חלק מאותה אי-ודאות שתוארה למעלה, ואותו `npm run build` הוא האימות.
+ */
+export type StreamChatClient = {
+  messages: {
+    stream(params: {
+      model: string;
+      max_tokens: number;
+      system: string;
+      tools: ToolDef[];
+      messages: ChatApiMessage[];
+    }): {
+      on(event: "text", cb: (delta: string) => void): unknown;
+      finalMessage(): Promise<{ content: ChatBlock[]; stop_reason: string | null }>;
+    };
+  };
+};
+
+function defaultStreamClient(): StreamChatClient {
+  return new Anthropic() as unknown as StreamChatClient;
 }
 
 export type ChatTurn =
@@ -103,6 +131,35 @@ export type ChatResult = {
   /** כל שלב בלולאה, כולל קריאות כלים — ליומן/דיבוג, לא למסך. */
   turns: ChatTurn[];
 };
+
+/**
+ * מריץ את כל קריאות הכלים שביקש סיבוב אחד, ומחזיר את ה-tool_result
+ * שצריך לצאת בהודעה הבאה. משותף ל-`runChat` ול-`streamChat` — הלוגיקה
+ * הזו זהה בין השניים, ורק איך מתקבל הטקסט משתנה.
+ */
+async function dispatchToolCalls(
+  db: Db,
+  userId: string,
+  toolUses: readonly Extract<ChatBlock, { type: "tool_use" }>[],
+  runTool: RunTool,
+  turns: ChatTurn[]
+): Promise<ToolResultInput[]> {
+  const results: ToolResultInput[] = [];
+  for (const call of toolUses) {
+    turns.push({ type: "tool_call", name: call.name, input: call.input });
+
+    let result: unknown;
+    try {
+      result = await runTool(db, userId, call.name, (call.input ?? {}) as Record<string, unknown>);
+    } catch (err) {
+      result = { error: err instanceof Error ? err.message : String(err) };
+    }
+
+    turns.push({ type: "tool_result", name: call.name, result });
+    results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify(result) });
+  }
+  return results;
+}
 
 /**
  * מריץ שיחה אחת עד תשובה סופית, כולל כל קריאות הכלים שבדרך.
@@ -146,22 +203,7 @@ export async function runChat(
     }
 
     messages.push({ role: "assistant", content: response.content });
-
-    const results: ToolResultInput[] = [];
-    for (const call of toolUses) {
-      turns.push({ type: "tool_call", name: call.name, input: call.input });
-
-      let result: unknown;
-      try {
-        result = await runTool(db, userId, call.name, (call.input ?? {}) as Record<string, unknown>);
-      } catch (err) {
-        result = { error: err instanceof Error ? err.message : String(err) };
-      }
-
-      turns.push({ type: "tool_result", name: call.name, result });
-      results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify(result) });
-    }
-
+    const results = await dispatchToolCalls(db, userId, toolUses, runTool, turns);
     messages.push({ role: "user", content: results });
   }
 
@@ -172,4 +214,66 @@ export async function runChat(
     reply: "השאלה דרשה יותר מדי שלבים ולא הגעתי לתשובה סופית. אפשר לנסח אותה מחדש או לפצל לשתי שאלות?",
     turns,
   };
+}
+
+/**
+ * כמו `runChat`, אבל מזרימה את הטקסט של כל סיבוב דרך `onText` תוך כדי
+ * קבלה — כולל טקסט שיוצא לפני שהמודל מחליט לבקש כלי ("בוא אבדוק...").
+ * זה לא רק תשובה סופית שמוזרמת: זו בחירה מכוונת. **טקסט ביניים שמוצג
+ * ברגע שהוא נוצר נותן למשתמש סימן שקורה משהו, במקום מסך דומם שמחכה
+ * לתוצאה של קריאת כלי.**
+ *
+ * הערך המוחזר זהה ל-`runChat` (`reply`, `turns`) — לשמירה/דיבוג בצד
+ * השרת, אחרי שהזרם כבר הגיע למסך.
+ */
+export async function streamChat(
+  db: Db,
+  userId: string,
+  history: readonly ChatMessage[],
+  onText: (delta: string) => void,
+  opts: { client?: StreamChatClient; runTool?: RunTool } = {}
+): Promise<ChatResult> {
+  const client = opts.client ?? defaultStreamClient();
+  const runTool = opts.runTool ?? runToolLive;
+  const turns: ChatTurn[] = [];
+
+  const messages: ChatApiMessage[] = history.map((m) => ({ role: m.role, content: m.content }));
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const stream = client.messages.stream({
+      model: CHAT_MODEL,
+      max_tokens: MAX_TOKENS,
+      system: SYSTEM_PROMPT,
+      tools: TOOLS,
+      messages,
+    });
+
+    let roundText = "";
+    stream.on("text", (delta) => {
+      roundText += delta;
+      onText(delta);
+    });
+
+    const response = await stream.finalMessage();
+
+    const toolUses = response.content.filter(
+      (b): b is Extract<ChatBlock, { type: "tool_use" }> => b.type === "tool_use"
+    );
+
+    if (roundText) turns.push({ type: "text", text: roundText });
+
+    if (response.stop_reason !== "tool_use" || toolUses.length === 0) {
+      // << הטקסט כבר הוזרם למסך במלואו — לא צריך לחבר אותו שוב מ-response.content.
+      return { reply: roundText.trim(), turns };
+    }
+
+    messages.push({ role: "assistant", content: response.content });
+    const results = await dispatchToolCalls(db, userId, toolUses, runTool, turns);
+    messages.push({ role: "user", content: results });
+  }
+
+  turns.push({ type: "limit", rounds: MAX_TOOL_ROUNDS });
+  const limitMsg = "השאלה דרשה יותר מדי שלבים ולא הגעתי לתשובה סופית. אפשר לנסח אותה מחדש או לפצל לשתי שאלות?";
+  onText(limitMsg);
+  return { reply: limitMsg, turns };
 }

@@ -179,6 +179,30 @@ describe("runChat — לולאת הכלים", () => {
     assert.ok(result.reply.includes("יותר מדי שלבים"));
     assert.deepEqual(result.turns[result.turns.length - 1], { type: "limit", rounds: 6 });
   });
+
+  it("stop_reason='max_tokens' לא מוצג כתשובה סופית שקטה — מסומן ומוערת בבירור", async () => {
+    const client: ChatClient = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text" as const, text: "הנה סיכום ל-13 החודשים: ינואר 1,200" }],
+          stop_reason: "max_tokens",
+        }),
+      },
+    };
+    const runTool = async () => {
+      throw new Error("לא אמור להיקרא");
+    };
+
+    const result = await runChat(WITH_USER, USER, [{ role: "user", content: "סכם לי את כל הזמן" }], {
+      client,
+      runTool: runTool as never,
+    });
+
+    // הטקסט החלקי עדיין שם — לא נזרק — אבל עם הערה מפורשת שהוא נקטע.
+    assert.ok(result.reply.startsWith("הנה סיכום ל-13 החודשים: ינואר 1,200"));
+    assert.ok(result.reply.includes("נקטעה"));
+    assert.deepEqual(result.turns[result.turns.length - 1], { type: "truncated" });
+  });
 });
 
 /** בונה סיבוב מזויף של stream(): מזרים deltas ואז פותר עם ההודעה הסופית. */
@@ -325,5 +349,34 @@ describe("streamChat — גרסת ההזרמה", () => {
     assert.equal(received.length, 1);
     assert.ok(received[0].includes("יותר מדי שלבים"));
     assert.equal(result.reply, received[0]);
+  });
+
+  it("stop_reason='max_tokens' בהזרמה מוסיף הערת חיתוך כדלתא נוספת, לא מסתיים סתם", async () => {
+    const client: StreamChatClient = {
+      messages: {
+        stream: () =>
+          fakeStreamRound(["הנה סיכום ל-13 החודשים: ינואר 1,200"], {
+            content: [{ type: "text", text: "הנה סיכום ל-13 החודשים: ינואר 1,200" }],
+            stop_reason: "max_tokens",
+          }),
+      },
+    };
+    const runTool = async () => {
+      throw new Error("לא אמור להיקרא");
+    };
+
+    const received: string[] = [];
+    const result = await streamChat(
+      WITH_USER,
+      USER,
+      [{ role: "user", content: "סכם לי את כל הזמן" }],
+      (d) => received.push(d),
+      { client, runTool: runTool as never }
+    );
+
+    // הדלתא האחרונה שהתקבלה היא הערת החיתוך, לא שקט סתם.
+    assert.ok(received[received.length - 1].includes("נקטעה"));
+    assert.ok(result.reply.includes("נקטעה"));
+    assert.deepEqual(result.turns[result.turns.length - 1], { type: "truncated" });
   });
 });

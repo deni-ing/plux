@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -24,9 +24,19 @@ export function ChatScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // << `busy` (state) לא מספיק כדי לחסום שליחה כפולה: עדכון state לא
+  //    מיושם על ה-DOM/הסגירה הבאה באופן סינכרוני, אז יש חלון קצר שבו
+  //    Enter+Enter (או קליק+קליק) מהיר קורא ל-send() פעמיים לפני
+  //    שהכפתור/השדה בכלל הופכים ל-disabled. שני send() חופפים דורכים
+  //    אחד על ה-state של השני (וגם היו שולחים לשרת שתי בקשות עם אותה
+  //    היסטוריה). ref מתעדכן מיידית וסינכרונית — לא ממתין לרינדור —
+  //    אז הבדיקה השנייה תמיד רואה את השינוי מהראשונה.
+  const busyRef = useRef(false);
+
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || busyRef.current) return;
+    busyRef.current = true;
 
     const history: Msg[] = [...messages, { role: "user", content: text }];
     setError(null);
@@ -67,6 +77,7 @@ export function ChatScreen() {
       // << מוריד את בועת ה"..." הריקה — עדיף שלא תישאר תלויה בלי תשובה.
       setMessages((prev) => prev.slice(0, -1));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }

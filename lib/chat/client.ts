@@ -75,8 +75,18 @@ export const SYSTEM_PROMPT = `את/ה עוזר/ת פיננסי/ת בתוך Plux,
 - אם לא ברור אילו חודשים יש בכלל נתונים עליהם, קרא/י ל-listAvailableMonths
   לפני שאתה מנחש חודש.
 - אין לך יכולת לסכם טווח של כמה חודשים בקריאת כלי אחת — כל קריאה
-  מחזירה חודש בודד. אם נשאלת/ה על "כל הזמן" או טווח רחב, תגיד/י בפירוש
-  שאת/ה יכול/ה לבדוק חודש-חודש ותציע/י זאת, במקום לנסות לכסות הכול.
+  מחזירה חודש בודד. **גם אם קראת ל-getMonthlyReport כמה פעמים ברצף
+  וקיבלת נתונים אמיתיים על כמה חודשים, אל תרכיב/י מהם טבלה מסכמת אחת
+  לכל הטווח.** התשובה תיקטע (יש תקרת אורך) והתוצאה תיראה כמו נתונים
+  שבורים או מומצאים, גם אם המספרים שבבסיסם היו נכונים. במקום זה: תני/תן
+  תשובה קצרה שמתמקדת בשאלה, ואם באמת נדרש טווח רחב — תגיד/י בפירוש
+  שאת/ה יכול/ה לבדוק חודש-חודש, ותציע/י להתחיל מחודש ספציפי.
+- אין ללקוח שמציג את התשובה רינדור Markdown — הוא מציג טקסט רגיל בתוך
+  פסקה מיושרת לימין. **אסור להשתמש בטבלאות בסגנון Markdown (תווי פס
+  אנכי, שורת מקפים מפרידה) או בכוכביות להדגשה.** תערובת כזו של תווים
+  לועזיים ומספרים בתוך טקסט עברי נראית מבולגנת ובלתי קריאה במסך שמיושר
+  RTL. כתוב/כתבי משפטים רגילים, ואם צריך לפרט כמה ערכים — שורה נפרדת
+  לכל ערך, לא טבלה.
 - אם כלי מחזיר שגיאה — דווח/י בדיוק את מה שכתוב בה, או שאין לך תשובה.
   אסור להמציא סיבה טכנית (כמו "timeout" או "עומס") שלא מופיעה בפועל
   בתוצאת הכלי. סיבה מומצאת מזיקה יותר מ"אני לא יודע/ת".
@@ -146,7 +156,20 @@ export type ChatTurn =
   | { type: "text"; text: string }
   | { type: "tool_call"; name: string; input: unknown }
   | { type: "tool_result"; name: string; result: unknown }
-  | { type: "limit"; rounds: number };
+  | { type: "limit"; rounds: number }
+  | { type: "truncated" };
+
+/**
+ * הודעה שמתווספת לתשובה כש-`stop_reason` הוא `"max_tokens"` — כלומר
+ * המודל לא סיים באמת, ה-API פשוט קטע אותו באמצע כי MAX_TOKENS נגמר.
+ *
+ * << בלי הבדיקה הזו, `stop_reason !== "tool_use"` מספיק כדי להחזיר את
+ *    הטקסט כתשובה "סופית" רגילה — גם כשהוא בעצם נחתך באמצע משפט/טבלה.
+ *    זו בדיוק התקלה שגרמה לתשובה שנראית כאילו "משוקרת": לא שהמודל בדה
+ *    מספרים, אלא שהתשובה האמיתית נקטעה והוצגה כאילו היא שלמה.
+ */
+const TRUNCATION_NOTE =
+  "\n\n[התשובה נקטעה כי הייתה ארוכה מדי. אפשר לבקש תשובה קצרה יותר, או לשאול על חודש אחד בכל פעם.]";
 
 export type ChatResult = {
   reply: string;
@@ -229,7 +252,12 @@ export async function runChat(
     for (const b of textBlocks) turns.push({ type: "text", text: b.text });
 
     if (response.stop_reason !== "tool_use" || toolUses.length === 0) {
-      return { reply: textBlocks.map((b) => b.text).join("\n").trim(), turns };
+      let reply = textBlocks.map((b) => b.text).join("\n").trim();
+      if (response.stop_reason === "max_tokens") {
+        turns.push({ type: "truncated" });
+        reply += TRUNCATION_NOTE;
+      }
+      return { reply, turns };
     }
 
     messages.push({ role: "assistant", content: response.content });
@@ -294,6 +322,14 @@ export async function streamChat(
 
     if (response.stop_reason !== "tool_use" || toolUses.length === 0) {
       // << הטקסט כבר הוזרם למסך במלואו — לא צריך לחבר אותו שוב מ-response.content.
+      if (response.stop_reason === "max_tokens") {
+        // << ההזרמה כבר יצאה למסך; ה-`onText` הנוסף מוסיף את ההערה כדלתא
+        //    אחרונה, כדי שהמשתמש יראה בבירור שהתשובה נחתכה ולא תסתיים
+        //    סתם באמצע משפט/טבלה בלי הסבר.
+        turns.push({ type: "truncated" });
+        onText(TRUNCATION_NOTE);
+        return { reply: (roundText + TRUNCATION_NOTE).trim(), turns };
+      }
       return { reply: roundText.trim(), turns };
     }
 

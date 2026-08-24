@@ -1,14 +1,21 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { runChat, streamChat, type ChatClient, type StreamChatClient } from "../../lib/chat/client";
+import {
+  runChat,
+  streamChat,
+  type ChatClient,
+  type StreamChatClient,
+  type WithUser,
+} from "../../lib/chat/client";
 
 /**
  * ‏`Db` האמיתי לא נחוץ כאן בכלל: כל טסט מזריק גם client מזויף וגם
- * runTool מזויף, ולכן שום קוד לא נוגע במסד. מעביר אובייקט ריק, מוקלד
- * `as never`, כדי שהחתימה תתקמפל בלי לייבא את הטיפוס האמיתי.
+ * runTool מזויף, ולכן שום קוד לא נוגע במסד באמת. `WITH_USER` פשוט
+ * מריץ את הפונקציה עם db מזויף — אין כאן שום טרנזקציה אמיתית להיפתח
+ * או להיסגר, רק סיפוק החתימה שהלולאה מצפה לה.
  */
-const DB = {} as never;
+const WITH_USER: WithUser = (fn) => fn({} as never);
 const USER = "user_test";
 
 function textResponse(text: string) {
@@ -37,7 +44,7 @@ describe("runChat — לולאת הכלים", () => {
       throw new Error("לא אמור להיקרא");
     };
 
-    const result = await runChat(DB, USER, [{ role: "user", content: "היי" }], { client, runTool });
+    const result = await runChat(WITH_USER, USER, [{ role: "user", content: "היי" }], { client, runTool });
 
     assert.equal(result.reply, "שלום, איך אפשר לעזור?");
     assert.equal(calls, 1);
@@ -64,7 +71,7 @@ describe("runChat — לולאת הכלים", () => {
       return { tool: "getMonthlyReport", facts: { totals: { expense: 3200 } } };
     };
 
-    const result = await runChat(DB, USER, [{ role: "user", content: "כמה הוצאתי באוגוסט?" }], {
+    const result = await runChat(WITH_USER, USER, [{ role: "user", content: "כמה הוצאתי באוגוסט?" }], {
       client,
       runTool: runTool as never,
     });
@@ -104,7 +111,7 @@ describe("runChat — לולאת הכלים", () => {
       throw new Error("חודש לא תקין");
     };
 
-    const result = await runChat(DB, USER, [{ role: "user", content: "תראה לי תנועות" }], {
+    const result = await runChat(WITH_USER, USER, [{ role: "user", content: "תראה לי תנועות" }], {
       client,
       runTool: runTool as never,
     });
@@ -142,7 +149,7 @@ describe("runChat — לולאת הכלים", () => {
     };
     const runTool = async () => ({ tool: "listAvailableMonths", months: ["2026-08"] });
 
-    await runChat(DB, USER, [{ role: "user", content: "שאלה" }], { client, runTool: runTool as never });
+    await runChat(WITH_USER, USER, [{ role: "user", content: "שאלה" }], { client, runTool: runTool as never });
 
     assert.equal(capturedResults.length, 2);
     assert.deepEqual(
@@ -163,7 +170,7 @@ describe("runChat — לולאת הכלים", () => {
     };
     const runTool = async () => ({ tool: "listAvailableMonths", months: [] });
 
-    const result = await runChat(DB, USER, [{ role: "user", content: "שאלה" }], {
+    const result = await runChat(WITH_USER, USER, [{ role: "user", content: "שאלה" }], {
       client,
       runTool: runTool as never,
     });
@@ -205,7 +212,7 @@ describe("streamChat — גרסת ההזרמה", () => {
     };
 
     const result = await streamChat(
-      DB,
+      WITH_USER,
       USER,
       [{ role: "user", content: "היי" }],
       (delta) => received.push(delta),
@@ -243,7 +250,7 @@ describe("streamChat — גרסת ההזרמה", () => {
     const runTool = async () => ({ tool: "getMonthlyReport", facts: {} });
 
     const result = await streamChat(
-      DB,
+      WITH_USER,
       USER,
       [{ role: "user", content: "כמה הוצאתי?" }],
       (delta) => received.push(delta),
@@ -283,7 +290,7 @@ describe("streamChat — גרסת ההזרמה", () => {
       throw new Error("תקלת מסד");
     };
 
-    const result = await streamChat(DB, USER, [{ role: "user", content: "תראה תנועות" }], () => {}, {
+    const result = await streamChat(WITH_USER, USER, [{ role: "user", content: "תראה תנועות" }], () => {}, {
       client,
       runTool: runTool as never,
     });
@@ -309,7 +316,7 @@ describe("streamChat — גרסת ההזרמה", () => {
     const runTool = async () => ({ tool: "listAvailableMonths", months: [] });
 
     const received: string[] = [];
-    const result = await streamChat(DB, USER, [{ role: "user", content: "שאלה" }], (d) => received.push(d), {
+    const result = await streamChat(WITH_USER, USER, [{ role: "user", content: "שאלה" }], (d) => received.push(d), {
       client,
       runTool: runTool as never,
     });

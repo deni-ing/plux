@@ -28,6 +28,15 @@
  * **2. כלי שנכשל לא מפיל את השיחה.** שגיאה מ-`runTool` (מסד לא זמין,
  * חודש לא קיים) הופכת לתוצאת כלי שאומרת את זה, והמודל ממשיך משם —
  * בדיוק כמו ש-`NullClassifier` לא זורק במקום להחזיר תשובה ריקה.
+ *
+ * **3. טרנזקציית ה-DB לא נשארת פתוחה לאורך כל השיחה.** הגרסה הראשונה
+ * קיבלה `db` מוכן מהקורא — טרנזקציה אחת שנפתחת ב-route ונסגרת רק אחרי
+ * שהמודל סיים לענות. בפועל זה נכשל בייצור: Prisma סוגר טרנזקציה
+ * אינטראקטיבית אחרי 5 שניות, וסיבוב עם קריאת כלי לוקח יותר מזה כי רוב
+ * הזמן הוא המתנה לרשת ל-Claude, לא עבודה במסד. **טרנזקציה לא אמורה
+ * להחזיק פתוח משהו שהיא לא שולטת במשך הזמן שלו** — ולכן `runChat`
+ * ו-`streamChat` מקבלים `withUser` (פותח-טרנזקציה) ולא `db` מוכן, ופותחים
+ * טרנזקציה קצרה חדשה לכל קריאת כלי בנפרד, לא אחת לכל השיחה.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -37,6 +46,13 @@ import { TOOLS, runTool as runToolLive, type ToolDef } from "./tools";
 
 /** אותה חתימה כמו `runTool` האמיתי — מאפשר להזריק גרסה מזויפת בטסטים. */
 type RunTool = typeof runToolLive;
+
+/**
+ * פותח טרנזקציה קצרה, מריץ פונקציה, סוגר. בדיוק חתימת `withUser` /
+ * `withCurrentUser` הקיימים ב-`lib/db/session.ts` — לא טיפוס חדש, רק
+ * שם מקומי כדי שהקובץ הזה לא ייבא את Clerk או את Prisma ישירות.
+ */
+export type WithUser = <T>(fn: (db: Db) => Promise<T>) => Promise<T>;
 
 export const CHAT_MODEL = process.env.PLUX_CHAT_MODEL ?? "claude-sonnet-5";
 
@@ -58,6 +74,12 @@ export const SYSTEM_PROMPT = `את/ה עוזר/ת פיננסי/ת בתוך Plux,
   ודאית — לכל היותר "אם זה יימשך בקצב הזה, ₪X בשנה".
 - אם לא ברור אילו חודשים יש בכלל נתונים עליהם, קרא/י ל-listAvailableMonths
   לפני שאתה מנחש חודש.
+- אין לך יכולת לסכם טווח של כמה חודשים בקריאת כלי אחת — כל קריאה
+  מחזירה חודש בודד. אם נשאלת/ה על "כל הזמן" או טווח רחב, תגיד/י בפירוש
+  שאת/ה יכול/ה לבדוק חודש-חודש ותציע/י זאת, במקום לנסות לכסות הכול.
+- אם כלי מחזיר שגיאה — דווח/י בדיוק את מה שכתוב בה, או שאין לך תשובה.
+  אסור להמציא סיבה טכנית (כמו "timeout" או "עומס") שלא מופיעה בפועל
+  בתוצאת הכלי. סיבה מומצאת מזיקה יותר מ"אני לא יודע/ת".
 - ל"חודש האחרון" אין קשר לתאריך של היום — אלה נתונים היסטוריים. תמיד
   תן/י ל-getMonthlyReport בלי month לקבל את החודש האחרון שיש עליו נתונים,
   במקום להניח שזה החודש הקלנדרי הנוכחי.
@@ -138,7 +160,7 @@ export type ChatResult = {
  * הזו זהה בין השניים, ורק איך מתקבל הטקסט משתנה.
  */
 async function dispatchToolCalls(
-  db: Db,
+  withUser: WithUser,
   userId: string,
   toolUses: readonly Extract<ChatBlock, { type: "tool_use" }>[],
   runTool: RunTool,
@@ -150,7 +172,11 @@ async function dispatchToolCalls(
 
     let result: unknown;
     try {
-      result = await runTool(db, userId, call.name, (call.input ?? {}) as Record<string, unknown>);
+      // << טרנזקציה אחת קצרה לכל קריאת כלי — לא הטרנזקציה שפתח הקורא.
+      //    ראה ההסבר למעלה: זו בדיוק הסיבה שיש WithUser ולא Db בחתימה.
+      result = await withUser((db) =>
+        runTool(db, userId, call.name, (call.input ?? {}) as Record<string, unknown>)
+      );
     } catch (err) {
       result = { error: err instanceof Error ? err.message : String(err) };
     }
@@ -167,9 +193,13 @@ async function dispatchToolCalls(
  * `history` הוא כל השיחה עד כה (בלי system — זה קבוע ולא חלק מההיסטוריה
  * שהמשתמש רואה). הפונקציה לא כותבת ל-DB ולא שומרת שיחה — זה תפקיד
  * הקורא (ה-route), בדיוק כמו ש-`browse` לא מחליט מה מוצג.
+ *
+ * `withUser` הוא פותח-טרנזקציה (למשל `withCurrentUser` מ-`lib/db/session`
+ * עם ה-userId כבר קשור), לא `db` מוכן — כל קריאת כלי פותחת טרנזקציה
+ * משלה. ראה ההערה 3 בראש הקובץ.
  */
 export async function runChat(
-  db: Db,
+  withUser: WithUser,
   userId: string,
   history: readonly ChatMessage[],
   opts: { client?: ChatClient; runTool?: RunTool } = {}
@@ -203,7 +233,7 @@ export async function runChat(
     }
 
     messages.push({ role: "assistant", content: response.content });
-    const results = await dispatchToolCalls(db, userId, toolUses, runTool, turns);
+    const results = await dispatchToolCalls(withUser, userId, toolUses, runTool, turns);
     messages.push({ role: "user", content: results });
   }
 
@@ -227,7 +257,7 @@ export async function runChat(
  * השרת, אחרי שהזרם כבר הגיע למסך.
  */
 export async function streamChat(
-  db: Db,
+  withUser: WithUser,
   userId: string,
   history: readonly ChatMessage[],
   onText: (delta: string) => void,
@@ -268,7 +298,7 @@ export async function streamChat(
     }
 
     messages.push({ role: "assistant", content: response.content });
-    const results = await dispatchToolCalls(db, userId, toolUses, runTool, turns);
+    const results = await dispatchToolCalls(withUser, userId, toolUses, runTool, turns);
     messages.push({ role: "user", content: results });
   }
 

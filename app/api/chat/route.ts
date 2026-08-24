@@ -9,10 +9,19 @@
  *
  * ‏`turns` (יומן הכלים) נשאר בשרת ולא חוזר ללקוח: מידע לדיבוג, לא למסך —
  * אותה הבחנה שקיימת ב-`AiReport` של הסיווג.
+ *
+ * ‏`streamChat` מקבל `withUser` (פותח-טרנזקציה), לא `withCurrentUser`
+ * שכבר רץ פעם אחת למעלה — כי `withCurrentUser` פותח טרנזקציה אחת
+ * ומריץ הכול בתוכה, וזו בדיוק הטעות שתוקנה: השיחה עם Claude ממתינה
+ * לרשת ולפעמים לוקחת יותר מ-5 שניות (תקרת הטרנזקציה האינטראקטיבית של
+ * Prisma), אז `withUser` נקרא מחדש בתוך `client.ts`, פעם קצרה לכל קריאת
+ * כלי — לא פעם אחת לכל השיחה. ה-userId כבר מאומת למעלה, אז `withUser`
+ * (בלי Clerk מחדש) מספיק ונכון יותר.
  */
 
-import { currentUserId, withCurrentUser } from "../../../lib/db/session";
-import { streamChat, type ChatMessage } from "../../../lib/chat/client";
+import { currentUserId } from "../../../lib/db/session";
+import { withUser } from "../../../lib/db/client";
+import { streamChat, type ChatMessage, type WithUser } from "../../../lib/chat/client";
 
 export const dynamic = "force-dynamic";
 
@@ -73,13 +82,13 @@ export async function POST(req: Request) {
       // << לא ממתינים ל-Promise הזה — הוא כותב לתוך ה-stream תוך כדי
       //    ריצה, וסוגר אותו כשמסתיים. ה-route מחזיר תשובה ברגע שהזרם
       //    נפתח, לא ברגע שיש טקסט סופי.
+      const boundWithUser: WithUser = (fn) => withUser(userId, fn);
+
       (async () => {
         try {
-          await withCurrentUser((db) =>
-            streamChat(db, userId, messages, (delta) => {
-              controller.enqueue(encoder.encode(delta));
-            })
-          );
+          await streamChat(boundWithUser, userId, messages, (delta) => {
+            controller.enqueue(encoder.encode(delta));
+          });
         } catch (err) {
           // << אותה מדיניות כמו syncCurrentUser ב-3.13: לא חושפים שגיאת
           //    SDK/מסד גולמית, אבל כן אומרים במפורש שמשהו נכשל — לא

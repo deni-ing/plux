@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { formatILS, share, sumAgorot, toAgorot, toShekels } from "../lib/analytics/money";
+import { formatILS, fromAgorot, share, sumAgorot, toAgorot, toShekels } from "../lib/analytics/money";
 
 describe("toAgorot", () => {
   it("קורא ייצוג עשרוני רגיל", () => {
@@ -37,6 +37,32 @@ describe("toAgorot", () => {
     assert.throws(() => toAgorot(""));
     assert.throws(() => toAgorot("abc"));
     assert.throws(() => toAgorot(Number.NaN));
+  });
+});
+
+describe("fromAgorot", () => {
+  it("הופכית ל-toAgorot על סכומים רגילים", () => {
+    assert.equal(fromAgorot(1790), "17.90");
+    assert.equal(fromAgorot(1800), "18.00");
+    assert.equal(fromAgorot(1), "0.01");
+    assert.equal(fromAgorot(0), "0.00");
+  });
+
+  it("שומרת על הסימן", () => {
+    assert.equal(fromAgorot(-1790), "-17.90");
+    assert.equal(fromAgorot(-1), "-0.01");
+  });
+
+  it("מסתובבת: toAgorot(fromAgorot(x)) === x, על טווח ערכים", () => {
+    for (const a of [0, 1, 99, 100, 1790, 123456, -1790, -1, -123456, 90_000_000_000]) {
+      assert.equal(toAgorot(fromAgorot(a)), a, `נכשל על ${a}`);
+    }
+  });
+
+  it("לא עוברת בנקודה צפה — ערך שהיה שובר toFixed רגיל", () => {
+    // 1.005 בנקודה צפה מתעגל לפעמים ל-"1.00" ולא "1.01" (ראו תיעוד toAgorot).
+    // fromAgorot לא בונה מחרוזת מחילוק־ואז־toFixed, אז אין לזה השפעה כאן:
+    assert.equal(fromAgorot(101), "1.01");
   });
 });
 

@@ -6,6 +6,7 @@
  *    להעביר אותו ל-header אחר כך זו העברה של שורה.
  *
  *    << נוסף "שיחה" בסעיף 7.3 — קישור חמישי, לא שינוי מבנה.
+ *    << נוסף "יעדי חיסכון" בשלב 8 — קישור שישי, אותו עיקרון.
  */
 
 import Link from "next/link";
@@ -15,6 +16,7 @@ const LINKS = [
   { href: "/dashboard", label: "דוח חודשי" },
   { href: "/transactions", label: "תנועות" },
   { href: "/chat", label: "שיחה" },
+  { href: "/savings", label: "יעדי חיסכון" },
   { href: "/import", label: "ייבוא" },
 ];
 

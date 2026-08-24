@@ -28,6 +28,10 @@
  * ‏Prisma מחזיר ‎Decimal(14,2) כאובייקט Decimal, לא כ-number. אם נכתוב
  * ‎Number(txn.amount) נעבור דרך נקודה צפה בדיוק במקום שממנו ניסינו
  * להימלט. `toAgorot` קוראת את הייצוג העשרוני כטקסט ומפרקת אותו לספרות.
+ *
+ * ‏`fromAgorot` היא ההופכית — נחוצה לראשונה בשלב 8, שכותב Decimal
+ * (SavingsGoal.saved/target) ולא רק קורא אותו. גם היא לא עוברת בנקודה
+ * צפה: חילוק ומודולו שלמים על אגורות, לא toFixed על תוצאת חילוק.
  */
 
 /** סכום באגורות. שלילי = כסף יוצא. */
@@ -70,6 +74,24 @@ export function toAgorot(value: MoneyLike): Agorot {
   if (rest && Number(rest[0]) >= 5) agorot += 1;
 
   return sign === "-" ? -agorot : agorot;
+}
+
+/**
+ * אגורות → מחרוזת עשרונית, לכתיבה ל-Decimal של Prisma.
+ *
+ *   fromAgorot(1790)   → "17.90"
+ *   fromAgorot(-123450) → "-1234.50"
+ *   fromAgorot(1800)   → "18.00"
+ *
+ * חילוק ומודולו על מספר שלם בלבד — לא `(a / 100).toString()`, כי זה
+ * חוזר בדיוק לנקודה הצפה שממנה כל הקובץ הזה בורח.
+ */
+export function fromAgorot(a: Agorot): string {
+  const sign = a < 0 ? "-" : "";
+  const abs = Math.abs(Math.round(a));
+  const shekels = Math.trunc(abs / 100);
+  const cents = String(abs % 100).padStart(2, "0");
+  return `${sign}${shekels}.${cents}`;
 }
 
 /** אגורות → שקלים. לתצוגה ולסריאליזציה בלבד, לא לחישוב המשך. */

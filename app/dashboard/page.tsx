@@ -37,6 +37,7 @@ import {
   Recurring,
   Totals,
 } from "../../components/dashboard/parts";
+import { Nav } from "../../components/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,7 @@ export default async function DashboardPage({
   if (!data || !data.result) {
     return (
       <main className="mx-auto w-full max-w-3xl p-6">
+        <Nav current="/dashboard" />
         <h1 className="text-2xl font-semibold">אין עדיין נתונים</h1>
         <p className="mt-2 text-sm opacity-70">
           כדי לראות דוח צריך לייבא דף חשבון או דוח אשראי.
@@ -89,6 +91,8 @@ export default async function DashboardPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
+      <Nav current="/dashboard" />
+
       {/* << הניווט הוא קישורים, לא state. החודש חי ב-URL — כלומר הדף
           נשאר Server Component, והכתובת ניתנת לרענון ולשיתוף. */}
       <nav className="mb-4 flex items-center justify-between gap-3 text-sm">
@@ -128,11 +132,6 @@ export default async function DashboardPage({
       <Recurring facts={facts} />
       <Fees facts={facts} />
 
-      <p className="mt-6 text-center text-xs opacity-50">
-        <Link href="/import" className="underline">
-          ייבוא קבצים
-        </Link>
-      </p>
     </main>
   );
 }

@@ -9,12 +9,12 @@
  *    תשומת הלב שלו במקום שבו אין החלטה לקבל.**
  */
 
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { currentUserId, withCurrentUser } from "../../lib/db/session";
 import { browse, pendingByMerchant } from "../../lib/txns/browse";
 import { PendingList, TxnRow } from "../../components/transactions/parts";
+import { Nav } from "../../components/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +40,8 @@ export default async function TransactionsPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
-      <header className="flex items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold">תנועות</h1>
-        <Link href="/dashboard" className="text-sm underline underline-offset-4 opacity-70">
-          לדוח החודשי
-        </Link>
-      </header>
+      <Nav current="/transactions" />
+      <h1 className="text-2xl font-semibold">תנועות</h1>
 
       {/* << חיפוש כטופס GET: המסנן חי בכתובת. אפשר לרענן, לשתף, ולחזור
           אחורה — וזה נשאר Server Component. */}

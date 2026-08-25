@@ -5,15 +5,15 @@
  *    שלך, לא ייעוץ פיננסי. אותו כלל עיצוב כמו הדשבורד — "מה שחשוב
  *    לא נכתב למטה בגודל קטן" — חל גם על אזהרה משפטית, לא רק חשבונאית.
  *
- * Server Component בלבד. הריאליות (8.2) מחושבת פעם אחת ב-engine.ts
- * ולא נחזרת כאן.
+ * Server Component בלבד. הריאליות (8.2) והצעדים המומלצים (8.4)
+ * מחושבים פעם אחת ב-engine.ts ולא נחזרים כאן.
  */
 
 import { redirect } from "next/navigation";
 
 import { currentUserId, withCurrentUser } from "../../lib/db/session";
 import { avgMonthlyNet, listGoals } from "../../lib/savings/store";
-import { assessRealism, goalStatus } from "../../lib/savings/engine";
+import { assessRealism, goalStatus, recommendSteps } from "../../lib/savings/engine";
 import { GoalCard, NewGoalForm } from "../../components/savings/parts";
 import { Notice } from "../../components/dashboard/parts";
 import { Nav } from "../../components/nav";
@@ -49,7 +49,10 @@ export default async function SavingsPage() {
         goals.map((g) => {
           const status = goalStatus(g, asOf);
           const realism = assessRealism(status.requiredMonthly, net);
-          return <GoalCard key={g.id} goal={g} status={status} realism={realism} />;
+          const steps = recommendSteps(status, realism, net);
+          return (
+            <GoalCard key={g.id} goal={g} status={status} realism={realism} steps={steps} />
+          );
         })
       )}
 

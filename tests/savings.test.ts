@@ -1,7 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { assessRealism, goalStatus, type SavingsGoal } from "../lib/savings/engine";
+import {
+  goalStatus,
+  assessRealism,
+  recommendSteps,
+  type GoalStatus,
+  type SavingsGoal,
+} from "../lib/savings/engine";
 
 function goal(over: Partial<SavingsGoal> = {}): SavingsGoal {
   return {
@@ -10,6 +16,18 @@ function goal(over: Partial<SavingsGoal> = {}): SavingsGoal {
     target: 100_000, // ₪1,000.00
     saved: 0,
     targetAt: new Date("2027-01-01T00:00:00Z"),
+    ...over,
+  };
+}
+
+function status(over: Partial<GoalStatus> = {}): GoalStatus {
+  return {
+    pct: 0,
+    remaining: 100_000,
+    monthsLeft: 10,
+    requiredMonthly: 10_000,
+    overdue: false,
+    achieved: false,
     ...over,
   };
 }
@@ -80,5 +98,63 @@ describe("assessRealism", () => {
 
   it("נדרש יותר מהנטו הממוצע → unrealistic", () => {
     assert.equal(assessRealism(10_001, 10_000), "unrealistic");
+  });
+});
+
+describe("recommendSteps", () => {
+  it("יעד שהושג → צעד יחיד של ברכה, בלי קשר לריאליות", () => {
+    const steps = recommendSteps(status({ achieved: true, remaining: 0 }), "comfortable", 10_000);
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].id, "achieved");
+  });
+
+  it("תאריך עבר ולא הושג → כולל צעד overdue בנוסף לצעד הריאליות", () => {
+    const steps = recommendSteps(status({ overdue: true }), "tight", 10_000);
+    assert.equal(steps.some((s) => s.id === "overdue"), true);
+    assert.equal(steps.some((s) => s.id === "tight"), true);
+  });
+
+  it("לא overdue → אין צעד overdue", () => {
+    const steps = recommendSteps(status({ overdue: false }), "comfortable", 10_000);
+    assert.equal(steps.some((s) => s.id === "overdue"), false);
+  });
+
+  it("comfortable → צעד יחיד comfortable", () => {
+    const steps = recommendSteps(status(), "comfortable", 10_000);
+    assert.deepEqual(
+      steps.map((s) => s.id),
+      ["comfortable"]
+    );
+  });
+
+  it("unknown → צעד unknown, לא מזכיר מספרים", () => {
+    const steps = recommendSteps(status(), "unknown", null);
+    assert.deepEqual(
+      steps.map((s) => s.id),
+      ["unknown"]
+    );
+  });
+
+  it("unrealistic עם נטו חיובי → מחשב extendedMonths מתוך remaining/avgMonthlyNet", () => {
+    const steps = recommendSteps(
+      status({ remaining: 100_000, monthsLeft: 5 }),
+      "unrealistic",
+      10_000
+    );
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].id, "unrealistic-extend");
+    assert.match(steps[0].text, /10 חודשים/); // 100_000 / 10_000 = 10
+  });
+
+  it("unrealistic עם נטו null → צעד גנרי, בלי חישוב חודשים", () => {
+    const steps = recommendSteps(status(), "unrealistic", null);
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].id, "unrealistic");
+  });
+
+  it("unrealistic עם נטו שלילי → צעד גנרי, בלי חלוקה במספר שלילי", () => {
+    const steps = recommendSteps(status(), "unrealistic", -5_000);
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].id, "unrealistic");
   });
 });

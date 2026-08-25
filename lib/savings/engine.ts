@@ -92,3 +92,72 @@ export function assessRealism(
   if (ratio <= 1) return "tight";
   return "unrealistic";
 }
+
+export type Recommendation = {
+  id: string;
+  text: string;
+};
+
+/**
+ * צעדים מומלצים. סעיף 8.4.
+ *
+ * << לא מקור מידע חדש — רק ניסוח בשפה טבעית של מה ש-goalStatus ו-
+ *    assessRealism כבר הכריעו. אותו כלל כמו lib/analytics/facts.ts:
+ *    "מה שהוכח לא צריך להיכתב שוב". avgMonthlyNet מגיע כפי שהוא,
+ *    בלי שאילתה נוספת.
+ */
+export function recommendSteps(
+  status: GoalStatus,
+  realism: Realism,
+  avgMonthlyNet: Agorot | null
+): Recommendation[] {
+  if (status.achieved) {
+    return [{ id: "achieved", text: "היעד הושג — אפשר להגדיר יעד חדש או להמשיך להפקיד." }];
+  }
+
+  const steps: Recommendation[] = [];
+
+  if (status.overdue) {
+    steps.push({
+      id: "overdue",
+      text: "התאריך שנקבע כבר עבר. שווה לעדכן את היעד לתאריך ריאלי חדש.",
+    });
+  }
+
+  switch (realism) {
+    case "unknown":
+      steps.push({
+        id: "unknown",
+        text: "עדיין אין מספיק חודשים עם נתונים מלאים כדי להעריך אם הקצב ריאלי.",
+      });
+      break;
+    case "comfortable":
+      steps.push({
+        id: "comfortable",
+        text: "הקצב הנדרש נמוך מהנטו הממוצע שלך — יש מרווח. אפשר גם לזרז את היעד עם הפקדה גבוהה יותר.",
+      });
+      break;
+    case "tight":
+      steps.push({
+        id: "tight",
+        text: "הקצב הנדרש קרוב לכל הנטו החודשי הממוצע. כדאי לעקוב מקרוב, או לשקול להאריך את התאריך כדי להשאיר מרווח.",
+      });
+      break;
+    case "unrealistic":
+      if (avgMonthlyNet !== null && avgMonthlyNet > 0) {
+        const extendedMonths = Math.ceil(status.remaining / avgMonthlyNet);
+        steps.push({
+          id: "unrealistic-extend",
+          text: `הקצב הנדרש גבוה מהנטו החודשי הממוצע שלך. גם אם היית מפנה את כל הנטו לחיסכון, היו נדרשים כ-${extendedMonths} חודשים במקום ${status.monthsLeft} — שווה להאריך את התאריך או להקטין את סכום היעד.`,
+        });
+      } else {
+        steps.push({
+          id: "unrealistic",
+          text: "הקצב הנדרש גבוה מהנטו הממוצע שלך. שווה להאריך את התאריך או להקטין את סכום היעד.",
+        });
+      }
+      break;
+  }
+
+  return steps;
+}

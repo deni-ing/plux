@@ -1,15 +1,16 @@
 /**
  * רכיבי מסך יעדי החיסכון. סעיף 8.
  *
- * << בדיקת הריאליות (8.2) כבר הוכרעה ב-lib/savings/engine.ts — הרכיב
- *    רק מציג את התוצאה. אותו כלל כמו parts.tsx של הדשבורד: "מה שהיה
- *    צהוב בטרמינל חייב לשרוד למסך", לא להיכתב כאן מחדש.
+ * << בדיקת הריאליות (8.2) והצעדים המומלצים (8.4) כבר הוכרעו ב-
+ *    lib/savings/engine.ts — הרכיב רק מציג את התוצאה. אותו כלל כמו
+ *    parts.tsx של הדשבורד: "מה שהיה צהוב בטרמינל חייב לשרוד למסך",
+ *    לא להיכתב כאן מחדש.
  *
  * הכול Server Components וטפסים. אין `use client` בקובץ הזה.
  */
 
 import { formatILS } from "../../lib/analytics/money";
-import type { GoalStatus, Realism, SavingsGoal } from "../../lib/savings/engine";
+import type { GoalStatus, Realism, Recommendation, SavingsGoal } from "../../lib/savings/engine";
 import { contributeAction, createGoalAction, deleteGoalAction } from "../../app/savings/actions";
 
 const money = (a: number) => formatILS(a);
@@ -44,10 +45,12 @@ export function GoalCard({
   goal,
   status,
   realism,
+  steps,
 }: {
   goal: SavingsGoal;
   status: GoalStatus;
   realism: Realism;
+  steps: Recommendation[];
 }) {
   const dateLabel = goal.targetAt.toLocaleDateString("he-IL", {
     year: "numeric",
@@ -79,6 +82,17 @@ export function GoalCard({
               : ` · ${status.monthsLeft} חודשים נותרו`}
           </p>
           <p className={`mt-1 text-xs ${REALISM_CLASS[realism]}`}>{REALISM_LABEL[realism]}</p>
+
+          {steps.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs opacity-80">
+              {steps.map((s) => (
+                <li key={s.id} className="flex gap-1.5">
+                  <span aria-hidden="true">·</span>
+                  <span>{s.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
 

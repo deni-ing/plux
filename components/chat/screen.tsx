@@ -1,7 +1,7 @@
 /**
  * גוף הצ'אט. סעיף 7.3.
  *
- * ‏`"use client"` בכוונה — זה הרכיב היחיד בפרויקט שממתין לזרם שמגיע
+ * ‏"use client" בכוונה — זה הרכיב היחיד בפרויקט שממתין לזרם שמגיע
  * תוך כדי ריצה ומעדכן מסך בלי רענון. כל שאר המסכים (דשבורד, תנועות,
  * בית) הם Server Components כי הנתונים שלהם שלמים ברגע הרינדור; כאן
  * זה בדיוק ההפך — התשובה לא קיימת עדיין כשה-fetch יוצא, וזו הסיבה
@@ -10,15 +10,27 @@
  * ההיסטוריה חיה ב-state של הדפדפן בלבד — לא נשמרת בשום מקום. שאלה
  * חדשה שולחת את כל השיחה עד כה ל-`/api/chat`, וה-route בונה מחדש כל
  * פעם. פשוט, ולא הצטבר לו עדיין סיבה טובה יותר מזה.
+ *
+ * << `initialQuery`: נוסף עבור תיבת השאלה במסך הבית המאוחד. `/chat?q=`
+ *    מעביר טקסט חופשי, וכאן הוא נשלח פעם אחת אוטומטית בעליית הרכיב —
+ *    לא state נוסף, רק הפעלה יחידה של אותו send() שכבר קיים. sentRef
+ *    (ולא busy) מונע כפילות ב-Strict Mode של React, שמריץ effects
+ *    פעמיים ב-dev: בדיקת busy הייתה נכשלת כי הריצה השנייה קורית לפני
+ *    שהראשונה הספיקה לעדכן state.
+ *
+ * << עדכון עיצובי: black/[0.06] ודומיו הוחלפו בטוקנים (bg-wash,
+ *    border-border, text-critical) — אותו מסד עיצוב שכבר חל על
+ *    Nav/BudgetAlert/TopCategoryTiles. כפתור השליחה עבר ל-accent מלא
+ *    (היה מתאר בלבד), כמו הכפתורים הראשיים בטפסים שעודכנו איתו.
  */
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-export function ChatScreen() {
+export function ChatScreen({ initialQuery }: { initialQuery?: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,9 +44,10 @@ export function ChatScreen() {
   //    היסטוריה). ref מתעדכן מיידית וסינכרונית — לא ממתין לרינדור —
   //    אז הבדיקה השנייה תמיד רואה את השינוי מהראשונה.
   const busyRef = useRef(false);
+  const sentInitialRef = useRef(false);
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || busyRef.current) return;
     busyRef.current = true;
 
@@ -82,15 +95,23 @@ export function ChatScreen() {
     }
   }
 
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim() && !sentInitialRef.current) {
+      sentInitialRef.current = true;
+      void send(initialQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div>
-      <p className="text-sm opacity-60">
+      <p className="text-sm text-muted">
         שאל/י על ההוצאות שלך — הכול מבוסס על הנתונים שכבר יובאו, לא על ניחוש.
       </p>
 
       <div className="mt-4 space-y-3">
         {messages.length === 0 ? (
-          <p className="rounded-xl border border-black/10 p-4 text-sm opacity-60 dark:border-white/10">
+          <p className="rounded-xl border border-border p-4 text-sm text-muted">
             למשל: &quot;כמה הוצאתי החודש על אוכל?&quot; או &quot;מה השתנה לעומת החודש שעבר?&quot;
           </p>
         ) : null}
@@ -100,8 +121,8 @@ export function ChatScreen() {
             key={i}
             className={
               m.role === "user"
-                ? "me-auto max-w-[85%] rounded-xl bg-black/[0.06] px-4 py-2 text-sm dark:bg-white/[0.10]"
-                : "ms-auto max-w-[85%] rounded-xl border border-black/10 px-4 py-2 text-sm dark:border-white/10"
+                ? "me-auto max-w-[85%] rounded-xl bg-wash px-4 py-2.5 text-sm text-ink"
+                : "ms-auto max-w-[85%] rounded-xl border border-border px-4 py-2.5 text-sm text-ink leading-relaxed"
             }
           >
             {m.content || (busy && i === messages.length - 1 ? "…" : "")}
@@ -109,7 +130,7 @@ export function ChatScreen() {
         ))}
       </div>
 
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-critical">{error}</p> : null}
 
       <form
         className="mt-4 flex gap-2"
@@ -123,12 +144,12 @@ export function ChatScreen() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="שאל/י משהו..."
           disabled={busy}
-          className="flex-1 rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20"
+          className="flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-lg border border-black/20 px-4 py-2 text-sm hover:bg-black/[0.04] disabled:opacity-40 dark:border-white/20 dark:hover:bg-white/[0.06]"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-strong disabled:opacity-40"
         >
           שלח
         </button>

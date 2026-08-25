@@ -1,21 +1,33 @@
 /**
- * דף הבית של Plux.
+ * דף הבית של Plux — מרכז השליטה המאוחד.
  *
- * מחליף את דף ברירת המחדל של `create-next-app`.
+ * ─── למה זה כבר לא "שלושה דברים בעמודה" ───
  *
- * ─── מה דף בית צריך לעשות ───
+ * הגרסה הקודמת של הדף הזה (עדיין באותה רוח: "לא תפריט, לא ארבעה
+ * כפתורים") הציגה שלושה דברים ברצף אנכי — הוצאות, ממתין להכרעה,
+ * ניווט. זה עדיין נכון, אבל התברר שזה לא מספיק: המשתמש מגיע לכאן כדי
+ * לדעת "איפה אני עומד", וזה יותר משאלה אחת. יתרת בנק, תחזית סוף חודש,
+ * והתקדמות ליעד חיסכון הן שלוש תשובות לאותה שאלה שהיו קבורות בעמודים
+ * נפרדים — ומרכז שליטה הוא בדיוק המקום שמאחד אותן בלי שהמשתמש יצטרך
+ * ללחוץ בין ארבעה מסכים כדי לקבל תמונה אחת.
  *
- * לא תפריט. **דף בית שהוא רק ארבעה כפתורים מבקש מהמשתמש להחליט לאן
- * ללכת לפני שנתן לו סיבה** — והוא מחזיק את כל המידע הדרוש כדי לענות
- * על השאלה בעצמו.
+ * ‏**מה לא נבנה, ולמה** (שתי החלטות היקף מכוונות, לא שכחה):
  *
- * לכן הוא מציג שלושה דברים, ובסדר הזה:
+ *   1. אין כאן טאבים של שבוע/3 חודשים/שנה. האנליטיקה כרגע חודשית
+ *      בלבד — טאב מושבת עם עיגול-פס-אמצע נראה כמו תקלה, לא כמו
+ *      "עוד לא". כשהאנליטיקה תתמוך בטווחים אחרים, זה ייפתח כאן.
  *
- *   1. כמה יצא בחודש האחרון — התשובה לשאלה שבגללה נכנסים.
- *   2. מה ממתין להכרעה — הפעולה היחידה שיש בה ערך מיידי.
- *   3. לאן להמשיך.
+ *   2. כרטיס היתרה נעלם לגמרי (לא "ריק", נעלם) כשאין חשבון בנק —
+ *      ראו lib/accounts/store.ts: רק לאומי (BANK) מדווח יתרה, ו-MAX
+ *      אף פעם לא. משתמש עם MAX בלבד לא אמור לראות כרטיס שמסביר
+ *      לעצמו למה הוא ריק.
  *
- * ואם אין נתונים בכלל, הוא מציג דבר אחד: לאן להעלות קובץ.
+ * ‏**המלצות (lib/recommendations) הן ניסוח, לא מקור מידע רביעי** — ראו
+ * ההערה הארוכה ב-lib/recommendations/engine.ts. "בטל את המנוי לחדר
+ * הכושר" לא כלול בכוונה: אין נתון לשימוש בפועל, ראו סעיף 5.4 הישן.
+ *
+ * Server Component בלבד, כמו כל שאר המסך. `AskBox` הוא רכיב הלקוח
+ * היחיד בדף הזה — ורק כי יש לו ניווט תלוי-קלט.
  */
 
 import Link from "next/link";
@@ -23,24 +35,42 @@ import Link from "next/link";
 import { currentUserId, withCurrentUser } from "../lib/db/session";
 import { factsFor, latestPeriod } from "../lib/analytics/facts";
 import { pendingByMerchant } from "../lib/txns/browse";
-import { formatILS } from "../lib/analytics/money";
+import { bankBalance } from "../lib/accounts/store";
+import { avgMonthlyNet, listGoals } from "../lib/savings/store";
+import { assessRealism, goalStatus } from "../lib/savings/engine";
+import { loadRecommendations } from "../lib/recommendations/store";
+import { fetchMarketQuotes } from "../lib/market";
 import { Nav } from "../components/nav";
+import { AskBox } from "../components/home/ask-box";
+import { MarketTickerRow } from "../components/home/market-ticker";
+import {
+  BalanceCard,
+  ForecastCard,
+  PendingBanner,
+  PlanCard,
+  SpendSnapshotCard,
+} from "../components/home/parts";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const userId = await currentUserId();
+  // << בלי userId, בלי RLS, בלי withCurrentUser — טיקרי השוק לא נתון
+  //    של אף משתמש, אז הם נשלפים פעם אחת כאן ומופיעים בכל שלושת מצבי
+  //    הדף (לא מחובר / אין נתונים / דשבורד מלא) באותה צורה בדיוק.
+  const quotes = await fetchMarketQuotes();
 
   // << לא redirect ל-sign-in: דף הבית הוא גם הדף שרואים לפני התחברות,
   //    וה-layout כבר מציג את כפתורי Clerk בכותרת.
   if (!userId) {
     return (
       <main className="mx-auto w-full max-w-3xl p-6">
-        <h1 className="text-3xl font-semibold">Plux</h1>
-        <p className="mt-3 max-w-md text-lg opacity-70">
+        <MarketTickerRow quotes={quotes} />
+        <h1 className="mt-4 text-3xl font-semibold text-ink">Plux</h1>
+        <p className="mt-3 max-w-md text-lg text-ink-2">
           דוחות הבנק והאשראי שלך, מפוענחים ומסווגים — בלי לחבר את החשבון לאף אחד.
         </p>
-        <p className="mt-6 text-sm opacity-60">התחבר כדי להתחיל.</p>
+        <p className="mt-6 text-sm text-muted">התחבר כדי להתחיל.</p>
       </main>
     );
   }
@@ -48,24 +78,29 @@ export default async function Home() {
   const data = await withCurrentUser(async (db) => {
     const period = await latestPeriod(db, userId);
     if (!period) return null;
-    const [result, pending] = await Promise.all([
+    const [result, pending, balance, goals, net, recommendations] = await Promise.all([
       factsFor(db, userId, period),
       pendingByMerchant(db, userId, 100),
+      bankBalance(db, userId),
+      listGoals(db, userId),
+      avgMonthlyNet(db, userId),
+      loadRecommendations(db, userId),
     ]);
-    return { period, facts: result?.facts ?? null, pending };
+    return { period, facts: result?.facts ?? null, pending, balance, goals, net, recommendations };
   });
 
   if (!data || !data.facts) {
     return (
       <main className="mx-auto w-full max-w-3xl p-6">
         <Nav current="/" />
-        <h1 className="text-2xl font-semibold">אין עדיין נתונים</h1>
-        <p className="mt-2 text-sm opacity-70">
+        <MarketTickerRow quotes={quotes} />
+        <h1 className="mt-4 text-2xl font-semibold text-ink">אין עדיין נתונים</h1>
+        <p className="mt-2 text-sm text-ink-2">
           העלה דוח אשראי של MAX או דף חשבון של לאומי, והדוח ייבנה מעצמו.
         </p>
         <Link
           href="/import"
-          className="mt-6 inline-block rounded-xl border border-black/20 px-4 py-2 text-sm hover:bg-black/[0.03] dark:border-white/20 dark:hover:bg-white/[0.04]"
+          className="mt-6 inline-block rounded-xl border border-border px-4 py-2 text-sm text-ink hover:bg-wash"
         >
           לייבוא קבצים
         </Link>
@@ -73,74 +108,92 @@ export default async function Home() {
     );
   }
 
-  const { facts, pending } = data;
+  const { facts, pending, balance, goals, net, recommendations } = data;
   const pendingTotal = pending.reduce((s, p) => s + p.total, 0);
+
+  // << "עכשיו" נקרא פעם אחת כאן, לא במנוע — אותו עיקרון בדיוק כמו
+  //    app/savings/page.tsx. היעד המוצג הוא הראשון לפי targetAt
+  //    (listGoals כבר ממיין כך): התוכנית הבודדת שהכי קרובה בזמן.
+  const asOf = new Date();
+  const primaryGoal = goals[0] ?? null;
+  const primaryStatus = primaryGoal ? goalStatus(primaryGoal, asOf) : null;
+  const primaryRealism = primaryStatus ? assessRealism(primaryStatus.requiredMonthly, net) : null;
+
+  const showForecast = facts.forecast !== null && facts.forecast.daysRemaining > 0;
+
+  // << ניסיון ראשון היה 3 עמודות כש-3 כרטיסים מוצגים — נכשל בפועל:
+  //    כל כרטיס מכיל בעצמו תת-גריד של 3 מספרים (הכנסות/הוצאות/נטו,
+  //    רצפה/צפוי/תקרה), וברוחב מסך אמיתי (לא ה-1040px של קנבס העיצוב)
+  //    זה לא השאיר מקום למספרים – הם התחילו לחפוף. התיקון הנכון:
+  //    נשארים על 2 עמודות קבועות (הרוחב שכל כרטיס תוכנן אליו), וכרטיס
+  //    "יחיד" בשורה האחרונה (כשיש 1 או 3 כרטיסים, לא 2) מקבל
+  //    col-span-2 כדי למלא את השורה במקום להשאיר חצי ריק.
+  const summaryCards = [
+    balance ? <BalanceCard key="balance" summary={balance} /> : null,
+    <SpendSnapshotCard
+      key="spend"
+      income={facts.totals.income}
+      expense={facts.totals.expense}
+      net={facts.totals.net}
+      periodLabel={facts.period.label}
+      partial={facts.period.partial}
+      lastDataAt={facts.period.lastDataAt}
+    />,
+    showForecast && facts.forecast ? <ForecastCard key="forecast" forecast={facts.forecast} /> : null,
+  ].filter(Boolean);
+
+  const lastIsAlone = summaryCards.length % 2 === 1;
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
       <Nav current="/" />
+      <div className="mt-4">
+        <AskBox />
+      </div>
 
-      <h1 className="text-2xl font-semibold">{facts.period.label}</h1>
-      {facts.period.partial ? (
-        <p className="mt-1 text-sm text-amber-600">
-          חודש חלקי — נתונים עד {facts.period.lastDataAt}
-        </p>
-      ) : null}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {summaryCards.map((card, i) =>
+          lastIsAlone && i === summaryCards.length - 1 ? (
+            <div key={`span-${i}`} className="sm:col-span-2">
+              {card}
+            </div>
+          ) : (
+            card
+          )
+        )}
+      </div>
 
-      <dl className="mt-6 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-          <dt className="text-xs opacity-60">הוצאות</dt>
-          <dd className="mt-1 text-xl font-medium tabular-nums">
-            {formatILS(facts.totals.expense)}
-          </dd>
-        </div>
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-          <dt className="text-xs opacity-60">הכנסות</dt>
-          <dd className="mt-1 text-xl font-medium tabular-nums">
-            {formatILS(facts.totals.income)}
-          </dd>
-        </div>
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-          <dt className="text-xs opacity-60">נטו</dt>
-          <dd
-            className={`mt-1 text-xl font-medium tabular-nums ${facts.totals.net < 0 ? "text-red-600" : ""}`}
-          >
-            {formatILS(facts.totals.net)}
-          </dd>
-        </div>
-      </dl>
+      {/* << מתחת לתחזית, מעל התוכנית — בין "איפה אני עומד" (הכרטיסים
+          למעלה) ל"מה עושים עם זה" (התוכנית למטה), לא לפני שום דבר. */}
+      <div className="mt-4">
+        <MarketTickerRow quotes={quotes} />
+      </div>
+
+      <div className="mt-4">
+        <PlanCard
+          goal={primaryGoal}
+          status={primaryStatus}
+          realism={primaryRealism}
+          recommendations={recommendations}
+        />
+      </div>
 
       {/* << הפעולה לפני הקישורים. אם יש משהו להכריע, זה הדבר היחיד
           שהמסך הזה צריך לבקש. */}
-      {pending.length > 0 ? (
-        <Link
-          href="/transactions"
-          className="mt-4 block rounded-xl bg-amber-500/10 p-4 text-sm hover:bg-amber-500/[0.16]"
-        >
-          <b className="text-amber-700 dark:text-amber-400">
-            {pending.length} בתי עסק ממתינים להכרעה
-          </b>
-          <span className="ms-2 opacity-70">{formatILS(pendingTotal)} לא מסווגים</span>
-          <p className="mt-1 text-xs opacity-60">
-            סיווג אחד מחיל את עצמו על כל ההיסטוריה ועל כל ייבוא עתידי.
-          </p>
-        </Link>
-      ) : (
-        <p className="mt-4 rounded-xl bg-emerald-500/[0.08] p-4 text-sm text-emerald-700 dark:text-emerald-400">
-          כל התנועות מסווגות.
-        </p>
-      )}
+      <div className="mt-4">
+        <PendingBanner count={pending.length} total={pendingTotal} />
+      </div>
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm">
         <Link
           href="/dashboard"
-          className="rounded-xl border border-black/20 px-4 py-2 hover:bg-black/[0.03] dark:border-white/20 dark:hover:bg-white/[0.04]"
+          className="rounded-xl border border-border px-4 py-2 text-ink hover:bg-wash"
         >
           לדוח המלא
         </Link>
         <Link
           href="/import"
-          className="rounded-xl border border-black/20 px-4 py-2 hover:bg-black/[0.03] dark:border-white/20 dark:hover:bg-white/[0.04]"
+          className="rounded-xl border border-border px-4 py-2 text-ink hover:bg-wash"
         >
           ייבוא קובץ
         </Link>

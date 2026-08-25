@@ -14,6 +14,11 @@
  * לבנות.** לכן האזהרות כאן אינן הערות שוליים אלא רכיבים ראשונים
  * במדרג — הן מופיעות מעל המספר, לא מתחתיו.
  *
+ * << מסד העיצוב: כל הצבעים הגולמיים (black/white/red/emerald/amber עם
+ *    dark: נפרד) הוחלפו בטוקנים הסמנטיים מ-globals.css. `Totals` הוסר
+ *    ולא רק נצבע מחדש — `StatTiles` למטה מחליפה אותו, ולא היה טעם
+ *    להשאיר שני רכיבים שמציגים בדיוק את אותם שלושה מספרים.
+ *
  * הכול Server Components. אין `use client`, אין state, אין חישוב.
  */
 
@@ -21,6 +26,8 @@ import type { ReactNode } from "react";
 
 import { formatILS } from "../../lib/analytics/money";
 import type { SnapshotFacts } from "../../lib/analytics/snapshot";
+import { categoryIcon, categorySlot, topLevelSlug } from "../../lib/categories/palette";
+import { CategoryIcon } from "../categories/icon";
 
 // ─────────────────────────── בסיס ───────────────────────────
 
@@ -34,11 +41,11 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="mt-4 rounded-xl border border-black/10 p-4 dark:border-white/10">
+    <section className="mt-4 rounded-xl border border-border p-4">
       {title ? (
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="font-medium">{title}</h2>
-          {hint ? <span className="text-xs opacity-60">{hint}</span> : null}
+          <h2 className="font-medium text-ink">{title}</h2>
+          {hint ? <span className="text-xs text-muted">{hint}</span> : null}
         </div>
       ) : null}
       {children}
@@ -47,7 +54,7 @@ export function Card({
 }
 
 /**
- * אזהרה. `amber` ולא `red`: זו אינה תקלה אלא הקשר שחסר בלעדיו.
+ * אזהרה. `warn` ולא `critical`: זו אינה תקלה אלא הקשר שחסר בלעדיו.
  * אדום היה גורם לה להיראות כמו משהו לתקן, והיא לא.
  */
 export function Notice({
@@ -59,20 +66,20 @@ export function Notice({
 }) {
   const cls =
     tone === "bad"
-      ? "bg-red-500/10 text-red-700 dark:text-red-400"
+      ? "bg-critical/10 text-critical"
       : tone === "info"
-        ? "bg-black/[0.04] opacity-80 dark:bg-white/[0.06]"
-        : "bg-amber-500/10 text-amber-700 dark:text-amber-400";
+        ? "bg-wash text-ink-2"
+        : "bg-warn/10 text-warn";
   return <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${cls}`}>{children}</p>;
 }
 
-function Bar({ pct, muted = false }: { pct: number; muted?: boolean }) {
+function Bar({ pct, color, muted = false }: { pct: number; color?: string; muted?: boolean }) {
   const w = Math.max(0, Math.min(100, pct));
   return (
-    <div className="mt-1 h-1 w-full rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
+    <div className="mt-1 h-1 w-full rounded-full bg-track">
       <div
-        className={`h-1 rounded-full ${muted ? "bg-amber-500/60" : "bg-black/30 dark:bg-white/40"}`}
-        style={{ width: `${w}%` }}
+        className={`h-1 rounded-full ${color ? "" : muted ? "bg-warn/70" : "bg-ink-2/50"}`}
+        style={{ width: `${w}%`, backgroundColor: color }}
       />
     </div>
   );
@@ -88,8 +95,8 @@ export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
 
   return (
     <header>
-      <h1 className="text-2xl font-semibold">{p.label}</h1>
-      <p className="mt-2 text-sm opacity-70">
+      <h1 className="text-2xl font-semibold text-ink">{p.label}</h1>
+      <p className="mt-2 text-sm text-ink-2">
         {facts.basis === "booked" ? "לפי תאריך עסקה" : "לפי תאריך חיוב"}
         {" · "}
         {facts.totals.txnCount} תנועות
@@ -120,52 +127,135 @@ export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
 
 // ─────────────────────────── סכומים ───────────────────────────
 
-export function Totals({ facts }: { facts: SnapshotFacts }) {
+/**
+ * שורת שלושת מדדי-העל, כשלוש אריחי-KPI נפרדים — לא dl אחד עם שלוש
+ * עמודות כמו הגרסה הישנה (`Totals`, שהוסרה). כל אריח נושא את הדלתא
+ * מול החודש הקודם משלו; "נטו" נגזר מ-incomeDelta - expenseDelta במקום
+ * להיות שדה שלישי — אין לו כזה במבנה ההשוואה, ואין טעם להוסיף אחד רק
+ * כדי לא לחסר שתי חיסורים כאן.
+ */
+export function StatTiles({ facts }: { facts: SnapshotFacts }) {
   const t = facts.totals;
-  const cls = facts.classification;
   const c = facts.comparison;
-  const gap = cls.countPct - cls.amountPct;
+  const netDelta = c ? c.incomeDelta - c.expenseDelta : null;
 
   return (
-    <Card>
-      <dl className="grid grid-cols-3 gap-3 text-center">
-        <div>
-          <dt className="text-xs opacity-60">הכנסות</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums">{money(t.income)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs opacity-60">הוצאות</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums">{money(t.expense)}</dd>
-          {c ? (
-            <span
-              className={`text-xs tabular-nums ${c.expenseDelta > 0 ? "text-red-600" : "text-emerald-600"}`}
-            >
-              {c.expenseDelta > 0 ? "▲" : "▼"} {money(Math.abs(c.expenseDelta))}
+    <div className="mt-4 grid grid-cols-3 gap-3">
+      <StatTile label="הכנסות" value={t.income} delta={c?.incomeDelta ?? null} goodWhenUp />
+      <StatTile label="הוצאות" value={t.expense} delta={c?.expenseDelta ?? null} goodWhenUp={false} />
+      <StatTile
+        label="נטו"
+        value={t.net}
+        delta={netDelta}
+        goodWhenUp
+        negative={t.net < 0}
+        featured
+      />
+    </div>
+  );
+}
+
+/**
+ * << רק "נטו" מודגש (זוהר + מסגרת צבעונית, כמו האריח הבודד שזוהר
+ *    במוקאפ שהמשתמש שלח) — לא כל השלושה. זה בדיוק דפוס ה-"emphasis"
+ *    מסקילת ה-dataviz: "one series is the point, rest are context" —
+ *    מדגישים את המספר שבאמת חשוב (נטו) ומשאירים את השאר שקטים, במקום
+ *    לצבוע את כל השורה ולאבד את ההיררכיה. הצבע נגזר מהערך עצמו
+ *    (חיובי/שלילי), לא מהדלתא — נטו שלילי הוא מצב, גם בלי שינוי החודש.
+ */
+function StatTile({
+  label,
+  value,
+  delta,
+  goodWhenUp,
+  negative = false,
+  featured = false,
+}: {
+  label: string;
+  value: number;
+  delta: number | null;
+  goodWhenUp: boolean;
+  negative?: boolean;
+  featured?: boolean;
+}) {
+  const up = delta !== null && delta > 0;
+  const isGood = delta !== null && delta !== 0 && (goodWhenUp ? up : !up);
+  const deltaCls = delta === null || delta === 0 ? "text-muted" : isGood ? "text-good" : "text-critical";
+  const glow = featured ? (negative ? "var(--critical)" : "var(--good)") : null;
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl bg-surface ${featured ? "border-2" : "border border-border"}`}
+      style={
+        glow
+          ? {
+              borderColor: glow,
+              backgroundImage: `linear-gradient(180deg, color-mix(in srgb, ${glow} 12%, transparent), transparent 70%)`,
+              boxShadow: `0 0 0 1px color-mix(in srgb, ${glow} 35%, transparent), 0 12px 28px -10px color-mix(in srgb, ${glow} 60%, transparent)`,
+            }
+          : undefined
+      }
+    >
+      {glow ? <div className="h-1" style={{ backgroundColor: glow }} /> : null}
+      <div className="p-4 text-center">
+        <p className="text-xs text-muted">{label}</p>
+        <p
+          className={`mt-1 font-semibold tabular-nums ${featured ? "text-2xl" : "text-lg"} ${
+            negative ? "text-critical" : "text-ink"
+          }`}
+        >
+          {money(value)}
+        </p>
+        {delta !== null && delta !== 0 ? (
+          <p className={`text-xs tabular-nums ${deltaCls}`}>
+            {up ? "▲" : "▼"} {money(Math.abs(delta))}
+          </p>
+        ) : (
+          <p className="text-xs text-muted">ללא שינוי</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────── תקציב ───────────────────────────
+
+export type BudgetOverage = {
+  categoryName: string;
+  spent: number;
+  cap: number;
+};
+
+/** באנר חריגות תקציב. סעיף 6-החדש: מה שכבר גלוי ב-/budget עולה גם לכאן. */
+export function BudgetAlert({ overages }: { overages: BudgetOverage[] }) {
+  if (overages.length === 0) return null;
+  return (
+    <div
+      className="mt-4 overflow-hidden rounded-2xl border border-warn/30 bg-warn/10"
+      style={{ boxShadow: "0 10px 24px -14px color-mix(in srgb, var(--warn) 65%, transparent)" }}
+    >
+      <div className="flex items-center gap-3 p-4">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold"
+          style={{ backgroundColor: "color-mix(in srgb, var(--warn) 22%, transparent)", color: "var(--warn)" }}
+        >
+          !
+        </span>
+        <p className="text-sm font-medium text-warn">
+          חריגת תקציב ב{overages.length === 1 ? "קטגוריה אחת" : `${overages.length} קטגוריות`}
+        </p>
+      </div>
+      <ul className="space-y-1 px-4 pb-4">
+        {overages.map((o) => (
+          <li key={o.categoryName} className="flex items-baseline justify-between gap-3 text-sm text-ink-2">
+            <span>{o.categoryName}</span>
+            <span className="tabular-nums">
+              {money(o.spent)} <span className="text-muted">/ {money(o.cap)}</span>
             </span>
-          ) : null}
-        </div>
-        <div>
-          <dt className="text-xs opacity-60">נטו</dt>
-          <dd
-            className={`mt-1 text-lg font-medium tabular-nums ${t.net < 0 ? "text-red-600" : ""}`}
-          >
-            {money(t.net)}
-          </dd>
-        </div>
-      </dl>
-
-      <p className="mt-3 text-xs opacity-60">
-        {t.transfersExcluded} העברות הוחרגו ({money(t.transfersTotal)}) — הן אינן הוצאה
-        ואינן הכנסה.
-      </p>
-
-      {/* << שני מדדי כיסוי ולא אחד. הפער ביניהם הוא המידע: הוא אומר
-          שתנועה גדולה אחת לא סווגה. */}
-      <p className={`mt-1 text-xs ${cls.amountPct < 90 ? "text-amber-600" : "opacity-60"}`}>
-        סווגו {cls.countPct}% מהתנועות · {cls.amountPct}% מהשקלים
-        {gap > 10 ? " — הפער אומר שתנועה גדולה לא סווגה" : ""}
-      </p>
-    </Card>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -176,7 +266,7 @@ export function Categories({ facts }: { facts: SnapshotFacts }) {
   if (facts.categories.length === 0) {
     return (
       <Card title="לפי קטגוריה">
-        <p className="mt-3 text-sm opacity-70">אין הוצאות בחודש הזה.</p>
+        <p className="mt-3 text-sm text-ink-2">אין הוצאות בחודש הזה.</p>
       </Card>
     );
   }
@@ -189,19 +279,24 @@ export function Categories({ facts }: { facts: SnapshotFacts }) {
         {facts.categories.map((c) => {
           const mover = moverBySlug.get(c.slug);
           const unclassified = c.slug === null;
+          const color = unclassified ? "var(--warn)" : `var(--cat-${categorySlot(topLevelSlug(c.slug!))})`;
           return (
             <li key={c.slug ?? "__none__"}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className={`text-sm ${unclassified ? "text-amber-600" : ""}`}>
+                <span className={`flex items-center gap-2 text-sm ${unclassified ? "text-warn" : "text-ink"}`}>
+                  <CategoryIcon
+                    icon={unclassified ? null : categoryIcon(topLevelSlug(c.slug!))}
+                    className="shrink-0"
+                  />
                   {c.name}
-                  <span className="ms-2 text-xs opacity-50">{c.count}</span>
+                  <span className="text-xs text-muted">{c.count}</span>
                 </span>
-                <span className="tabular-nums text-sm">
+                <span className="tabular-nums text-sm text-ink">
                   {money(c.total)}
-                  <span className="ms-2 text-xs opacity-50">{c.share}%</span>
+                  <span className="ms-2 text-xs text-muted">{c.share}%</span>
                   {mover && mover.deltaPct !== null ? (
                     <span
-                      className={`ms-2 text-xs ${mover.delta > 0 ? "text-red-600" : "text-emerald-600"}`}
+                      className={`ms-2 text-xs ${mover.delta > 0 ? "text-critical" : "text-good"}`}
                     >
                       {mover.delta > 0 ? "▲" : "▼"} {Math.abs(mover.deltaPct)}%
                     </span>
@@ -209,18 +304,18 @@ export function Categories({ facts }: { facts: SnapshotFacts }) {
                 </span>
               </div>
 
-              <Bar pct={total === 0 ? 0 : (c.total / total) * 100} muted={unclassified} />
+              <Bar pct={total === 0 ? 0 : (c.total / total) * 100} color={color} />
 
               {c.children.length > 0 ? (
                 <ul className="mt-2 space-y-1 ps-3">
                   {c.children.map((k) => (
                     <li
                       key={k.slug}
-                      className="flex items-baseline justify-between gap-3 text-xs opacity-70"
+                      className="flex items-baseline justify-between gap-3 text-xs text-ink-2"
                     >
                       <span>
                         {k.name}
-                        <span className="ms-2 opacity-60">{k.count}</span>
+                        <span className="ms-2 text-muted">{k.count}</span>
                       </span>
                       <span className="tabular-nums">{money(k.total)}</span>
                     </li>
@@ -250,13 +345,13 @@ export function Movers({ facts }: { facts: SnapshotFacts }) {
       ) : null}
       <ul className="mt-3 space-y-2">
         {c.movers.slice(0, 6).map((m) => (
-          <li key={m.slug ?? "__none__"} className="flex items-baseline justify-between gap-3 text-sm">
+          <li key={m.slug ?? "__none__"} className="flex items-baseline justify-between gap-3 text-sm text-ink">
             <span>{m.name}</span>
             <span className="tabular-nums">
-              <span className={m.delta > 0 ? "text-red-600" : "text-emerald-600"}>
+              <span className={m.delta > 0 ? "text-critical" : "text-good"}>
                 {m.delta > 0 ? "▲" : "▼"} {money(Math.abs(m.delta))}
               </span>
-              <span className="ms-2 text-xs opacity-50">
+              <span className="ms-2 text-xs text-muted">
                 {m.deltaPct === null ? "חדש" : `${m.deltaPct}%`}
               </span>
             </span>
@@ -275,14 +370,14 @@ export function Fees({ facts }: { facts: SnapshotFacts }) {
 
   return (
     <Card title="עמלות" hint={`${f.shareOfExpense}% מההוצאה`}>
-      <p className="mt-2 text-lg font-medium tabular-nums">{money(f.total)}</p>
+      <p className="mt-2 text-lg font-medium tabular-nums text-ink">{money(f.total)}</p>
       <ul className="mt-3 space-y-1">
         {f.byMerchant.map((m) => (
-          <li key={m.merchant} className="flex items-baseline justify-between gap-3 text-sm">
+          <li key={m.merchant} className="flex items-baseline justify-between gap-3 text-sm text-ink">
             <span className="truncate">{m.merchant}</span>
-            <span className="tabular-nums opacity-70">
+            <span className="tabular-nums text-ink-2">
               {money(m.total)}
-              <span className="ms-2 text-xs opacity-60">×{m.count}</span>
+              <span className="ms-2 text-xs text-muted">×{m.count}</span>
             </span>
           </li>
         ))}
@@ -306,13 +401,13 @@ export function Recurring({ facts }: { facts: SnapshotFacts }) {
       <ul className="mt-3 space-y-3">
         {list.map((r) => (
           <li key={r.merchant}>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
+            <div className="flex items-baseline justify-between gap-3 text-sm text-ink">
               <span className="truncate">{r.merchant}</span>
               <span className="tabular-nums">{money(r.amount)}</span>
             </div>
-            <p className="text-xs opacity-60">
+            <p className="text-xs text-muted">
               {r.kind === "subscription" ? (
-                <span className="text-emerald-600">הוראת קבע</span>
+                <span className="text-good">הוראת קבע</span>
               ) : (
                 <span>זוהה לפי דפוס · {Math.round(r.confidence * 100)}% ביטחון</span>
               )}
@@ -324,9 +419,9 @@ export function Recurring({ facts }: { facts: SnapshotFacts }) {
                 בולט אינה מבטלת אותו. */}
             <p className="text-xs">
               {r.kind === "subscription" ? (
-                <span className="text-amber-600">{money(r.annualized)} בשנה</span>
+                <span className="text-warn">{money(r.annualized)} בשנה</span>
               ) : (
-                <span className="opacity-60">אם יימשך: {money(r.annualized)} בשנה</span>
+                <span className="text-muted">אם יימשך: {money(r.annualized)} בשנה</span>
               )}
             </p>
           </li>
@@ -351,47 +446,48 @@ export function Forecast({ facts }: { facts: SnapshotFacts }) {
 
   const tone =
     f.confidence === "low"
-      ? "text-red-600"
+      ? "text-critical"
       : f.confidence === "medium"
-        ? "text-amber-600"
-        : "text-emerald-600";
+        ? "text-warn"
+        : "text-good";
+  const label = f.confidence === "low" ? "נמוך" : f.confidence === "medium" ? "בינוני" : "גבוה";
 
   return (
     <Card title="תחזית לסוף החודש" hint={`${f.daysRemaining} ימים נותרו`}>
       <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
         <div>
-          <dt className="text-xs opacity-60">רצפה</dt>
-          <dd className="mt-1 font-medium tabular-nums">{money(f.floor)}</dd>
-          <span className="text-[10px] opacity-50">לא ייתכן פחות</span>
+          <dt className="text-xs text-muted">רצפה</dt>
+          <dd className="mt-1 font-medium tabular-nums text-ink">{money(f.floor)}</dd>
+          <span className="text-[10px] text-muted">לא ייתכן פחות</span>
         </div>
         <div>
-          <dt className="text-xs opacity-60">צפוי</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums">{money(f.expected)}</dd>
+          <dt className="text-xs text-muted">צפוי</dt>
+          <dd className="mt-1 text-lg font-medium tabular-nums text-ink">{money(f.expected)}</dd>
         </div>
         <div>
-          <dt className="text-xs opacity-60">תקרה</dt>
-          <dd className="mt-1 font-medium tabular-nums opacity-70">{money(f.ceiling)}</dd>
+          <dt className="text-xs text-muted">תקרה</dt>
+          <dd className="mt-1 font-medium tabular-nums text-muted">{money(f.ceiling)}</dd>
         </div>
       </dl>
 
       {f.upcoming.length > 0 ? (
         <ul className="mt-4 space-y-1">
           {f.upcoming.map((c) => (
-            <li key={c.merchant} className="flex items-baseline justify-between gap-3 text-sm">
+            <li key={c.merchant} className="flex items-baseline justify-between gap-3 text-sm text-ink">
               <span className="truncate">
                 {c.merchant}
-                <span className="ms-2 text-xs opacity-50">{c.dueAt}</span>
+                <span className="ms-2 text-xs text-muted">{c.dueAt}</span>
               </span>
-              <span className="tabular-nums opacity-70">{money(c.amount)}</span>
+              <span className="tabular-nums text-ink-2">{money(c.amount)}</span>
             </li>
           ))}
         </ul>
       ) : null}
 
       {/* << ההנחות. הן שדה במבנה ולא הערה בקוד בדיוק כדי שיגיעו לכאן. */}
-      <div className="mt-4 border-t border-black/10 pt-3 dark:border-white/10">
-        <p className={`text-xs ${tone}`}>ביטחון: {f.confidence}</p>
-        <ul className="mt-2 space-y-1 text-xs opacity-60">
+      <div className="mt-4 border-t border-border pt-3">
+        <p className={`text-xs ${tone}`}>ביטחון: {label}</p>
+        <ul className="mt-2 space-y-1 text-xs text-muted">
           {f.assumptions.map((a, i) => (
             <li key={i}>· {a}</li>
           ))}

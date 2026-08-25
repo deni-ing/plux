@@ -1,26 +1,120 @@
 @import "tailwindcss";
 
+/**
+ * מסד העיצוב (Design foundation). << עד עכשיו זה היה ה-boilerplate
+ * הבררת-מחדל של Next.js — שחור-לבן, בלי פלטה, בלי טיפוגרפיה עברית.
+ * כאן זה הופך למערכת: טוקנים סמנטיים (page/surface/ink/accent/...)
+ * שממופים למטה ל-Tailwind דרך @theme inline, כדי שכל מסך ישתמש
+ * ב-bg-surface/text-ink/border-border וכו' במקום black/[0.06] גולמי.
+ *
+ * כחול כצבע מותג — הוחלף מטורקיז לפי הפניה ויזואלית שהמשתמש הביא
+ * (מוק-אפ מסך הבית המאוחד). אמון פיננסי, קריא וברור על משטח לבן.
+ * צבעי הסמנטיקה (good/warn/critical) נפרדים בכוונה מהמותג — הם כבר
+ * בשימוש ב-Budget/SavingsGoal (under/near/over, comfortable/tight/
+ * unrealistic) ולא אמורים להתערבב עם accent של ניווט/כפתורים.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --page: #f6f7f5;
+  --surface: #ffffff;
+  --ink: #12181a;
+  --ink-2: #445052;
+  --muted: #7c8a8c;
+  --border: rgba(18, 24, 26, 0.1);
+  --grid: #e3e7e6;
+  --wash: rgba(18, 24, 26, 0.045);
+
+  --accent: #2f6feb;
+  --accent-strong: #1f52b8;
+  --on-accent: #f7faff;
+  --track: #d6e6fe;
+
+  --good: #1a8f4c;
+  --warn: #b7791f;
+  --critical: #c23a3a;
+
+  /* << פלטת קטגוריות — 8 גוונים קטגוריאליים מאומתים (סקילת dataviz של
+     הסשן: fixed hue anchors, CVD delta-E >= 8 שכן, ניגודיות מול משטח).
+     לא צבעי ה-seed שכבר יושבים על Category.color (lib/categories/tree.ts) —
+     אלה נבחרו לתחושה (Material-ish) בלי לעבור ולידציה, ו-"מזון" ו"הכנסה"
+     חולקים שם בטעות את אותו ירוק. האייקון ממשיך לבוא מה-seed; הצבע כאן
+     הוא זהות-נתונים נפרדת ויציבה, ממופה slug->slot ב-lib/categories/palette.ts. */
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+  --cat-7: #4a3aa7;
+  --cat-8: #e34948;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+
+    --page: #0c1110;
+    --surface: #161d1c;
+    --ink: #f2f5f3;
+    --ink-2: #b7c2c0;
+    --muted: #7c8987;
+    --border: rgba(255, 255, 255, 0.1);
+    --grid: #263230;
+    --wash: rgba(255, 255, 255, 0.055);
+
+    --accent: #5b9bff;
+    --accent-strong: #8ebcff;
+    --on-accent: #071426;
+    --track: #17335c;
+
+    --good: #3ecb7a;
+    --warn: #e0a940;
+    --critical: #e2685f;
+
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+    --cat-5: #d55181;
+    --cat-6: #008300;
+    --cat-7: #9085e9;
+    --cat-8: #e66767;
   }
 }
 
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-grid: var(--grid);
+  --color-wash: var(--wash);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-on-accent: var(--on-accent);
+  --color-track: var(--track);
+
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-critical: var(--critical);
+
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-cat-8: var(--cat-8);
+
+  --font-sans: var(--font-heebo);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
 }

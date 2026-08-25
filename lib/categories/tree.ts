@@ -41,7 +41,7 @@ export const CATEGORY_TREE: CategoryGroup[] = [
       {
         slug: "food",
         name: "מזון",
-        icon: "shopping-cart",
+        icon: "utensils",
         color: "#2E7D32",
         children: [
           { slug: "food.groceries", name: "סופר ומכולת" },
@@ -69,7 +69,7 @@ export const CATEGORY_TREE: CategoryGroup[] = [
       {
         slug: "housing",
         name: "דיור",
-        icon: "home",
+        icon: "key",
         color: "#6A1B9A",
         children: [
           { slug: "housing.rent", name: "שכר דירה ומשכנתא" },

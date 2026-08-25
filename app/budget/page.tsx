@@ -57,7 +57,7 @@ export default async function BudgetPage({
         ))
       )}
 
-      <section className="mt-6 rounded-xl border border-black/10 p-4 dark:border-white/10">
+      <section className="mt-6 rounded-xl border border-border p-4">
         <h2 className="font-medium">תקציב חדש</h2>
         <NewBudgetForm />
       </section>

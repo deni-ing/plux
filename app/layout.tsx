@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Heebo } from "next/font/google";
 import {
   ClerkProvider,
   Show,
@@ -9,14 +9,17 @@ import {
 } from "@clerk/nextjs";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+/**
+ * << Heebo במקום Geist: Geist לא כולל עברית ונפל לפונט מערכת (משימה
+ *    6.5 המקורית). Heebo נבנה במיוחד לצמד עברית/לטינית, ומזוהה כפונט
+ *    "רציני" בממשקים פיננסיים/ממשלתיים ישראליים — מתאים לטון שנבחר
+ *    לפרויקט הזה. subsets כולל hebrew במפורש; בלי זה next/font טוען
+ *    רק latin וטקסט עברי נופל חזרה לפונט מערכת בדיוק כמו קודם.
+ */
+const heebo = Heebo({
+  variable: "--font-heebo",
+  subsets: ["hebrew", "latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -31,31 +34,37 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <ClerkProvider>
       {/* dir="rtl" ו-lang="he": האפליקציה עברית מקצה לקצה, ועדיף לקבוע
           את זה עכשיו. שינוי כיוון אחרי שנבנו מסכים הופך כל margin ו-padding
-          לבדיקה מחדש. Tailwind גוזר מכאן את ms-* ו-me-*.
-          הערה: Geist לא כולל עברית, ולכן טקסט עברי ייפול לפונט המערכת.
-          בחירת פונט עברי היא משימה 6.5 ולא חוסמת כלום עכשיו. */}
+          לבדיקה מחדש. Tailwind גוזר מכאן את ms-* ו-me-*. */}
       <html
         lang="he"
         dir="rtl"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        className={`${heebo.variable} h-full antialiased`}
       >
-        <body className="min-h-full flex flex-col">
-          {/* סרגל זמני. תפקידו היחיד כרגע הוא לתת סימן ויזואלי שההתחברות
-              עובדת — במיוחד אחרי הדיפלוי, כשצריך לדעת אם הצינור שלם. */}
-          <header className="flex items-center justify-between border-b border-black/10 px-6 py-3 dark:border-white/10">
-            <span className="font-semibold">Plux</span>
+        <body className="min-h-full flex flex-col font-sans">
+          {/* << header קבוע: לא רק "סימן שההתחברות עובדת" כמו קודם —
+              עכשיו נושא את זהות המותג (סימן צבע המותג + wordmark) שחוזרת
+              בכל מסך. bg-surface נבדל במכוון מ-bg-page של הגוף, כדי
+              שהאפליקציה תרגיש כמו משטח מעל רקע ולא רצף שטוח אחד. */}
+          <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
+            <span className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight text-ink">
+              <span
+                aria-hidden="true"
+                className="inline-block h-2.5 w-2.5 rounded-full bg-accent"
+              />
+              Plux
+            </span>
             <div className="flex items-center gap-3">
               {/* Core 3 החליף את <SignedIn> ו-<SignedOut> ברכיב אחד:
                   <Show when="..."/>. אותה התנהגות, ממשק אחד במקום שניים —
                   ואותו רכיב מטפל גם בהרשאות, למשל when={{ role: "admin" }}. */}
               <Show when="signed-out">
                 <SignInButton mode="modal">
-                  <button className="rounded-md px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                  <button className="rounded-md px-3 py-1.5 text-sm text-ink-2 hover:bg-wash hover:text-ink">
                     התחברות
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="rounded-md bg-foreground px-3 py-1.5 text-sm text-background">
+                  <button className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-strong">
                     הרשמה
                   </button>
                 </SignUpButton>

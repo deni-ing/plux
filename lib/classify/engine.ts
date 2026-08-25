@@ -30,7 +30,11 @@ export type TxnKind =
   | "CARD_SETTLEMENT"
   | "OTHER";
 
-export type CategorySource = "PROVIDER" | "RULE" | "AI" | "USER";
+// << סעיף 4.10: TXN_KIND נוסף כאן, נפרד מ-RULE. עד עכשיו שני שלבים
+//    שונים בסדר ההכרעה (3: כלל-על-שם-בית-עסק, 4: מיפוי-לפי-סוג-תנועה)
+//    נכתבו שניהם כ-"RULE", ולא הייתה דרך לענות "כמה סווג לפי שם לעומת
+//    לפי סוג" בלי להריץ מחדש. ראו החלטה תואמת ב-docs/PROJECT-STATE.md.
+export type CategorySource = "PROVIDER" | "RULE" | "TXN_KIND" | "AI" | "USER";
 export type MatchType = "EXACT" | "PREFIX" | "CONTAINS" | "REGEX";
 
 export type CompiledRule = {
@@ -159,10 +163,11 @@ export function classify(input: Classifiable, rules: CompiledRule[]): Decision |
     }
   }
 
-  // 4 — סוג התנועה.
+  // 4 — סוג התנועה. מקור נפרד מ-RULE (סעיף 4.10): זו עובדה מבנית
+  // שהפרסר קבע, לא התאמה על המחרוזת.
   const byKind = input.kind ? KIND_SLUG[input.kind] : undefined;
   if (byKind) {
-    return { slug: byKind, source: "RULE", reason: `סוג תנועה: ${input.kind}` };
+    return { slug: byKind, source: "TXN_KIND", reason: `סוג תנועה: ${input.kind}` };
   }
 
   // 5 — הקטגוריה של הספק.

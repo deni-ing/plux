@@ -36,6 +36,20 @@
 פתוח) — שניהם תוקנו ומתועדים בקומיט `bc0ac5f`. **מהמפרט המקורי נשאר
 פער אחד בלבד: 3.11–3.12**, שדחוי בכוונה עד שהעיבוד יהפוך לאסינכרוני.
 
+**עדכון נוסף, אותו יום (25.08) — מעבר לשבעת השלבים המקוריים:** דף
+הבית הפך למרכז שליטה מאוחד במקום מסך ניווט גרידא. שלוש תוספות לא
+מהמפרט המקורי, כולן מנוסחות מעל מנועים קיימים ולא מקורות נתון
+חדשים: **יתרת חשבון** (`lib/accounts`, מנסח `balanceAfter` שכבר
+נשמר בכל ייבוא לאומי), **המלצות** (`lib/recommendations`, שלוש
+תובנות מ-`recurring`/`budget`/`savings` הקיימים — הוראת קבע לחיסכון,
+חריגת תקציב ברצף, וטיפ "כסף עומד ללא ריבית"), ו**טיקר שוק חי**
+(`lib/market`, Twelve Data, SPY/QQQ/AAPL/NVDA — לא סימבולי מדד
+גולמיים, שקוף על כך בתווית). לצד זה מסד עיצוב חדש לגמרי
+(`app/globals.css`: כחול כצבע מותג, שמונה גווני קטגוריה מאומתים,
+Heebo) שהחליף `black/white` גולמי בדשבורד/חיסכון/תקציב/צ'אט/ייבוא/
+בית, ושם הבוט בממשק שונה מ"שיחה" הכללית ל-**Pluxer**. commits
+`d37b5dc`, `f2ec05e`, `e49dcbe`, מתועדים בפירוט בהמשך המסמך.
+
 ---
 
 ## מה זה
@@ -84,6 +98,10 @@ Prisma 7.9.1 · PostgreSQL ב-Supabase · Clerk לזהות · Vercel לדיפל�
 | שכבת AI (צ'אט) | ✅ מחובר בפועל ל-Claude, לא מדומה |
 | **יעדי חיסכון (שלב 8, מלא)** | ✅ CRUD, חישוב חודשי נדרש, ריאליות, צעדים מומלצים, אזהרה |
 | Budget | ✅ מנוע under/near/over, upsert, מסך /budget |
+| בית — מרכז שליטה | ✅ AskBox ← Pluxer, יתרת בנק, המלצות, תוכנית |
+| יתרה והמלצות (`lib/accounts`, `lib/recommendations`) | ✅ 13 טסטים, לא מקור נתון רביעי |
+| טיקר שוק חי (`lib/market`) | ✅ Twelve Data — SPY/QQQ/AAPL/NVDA |
+| מסד עיצוב (טוקנים) | ✅ כחול, 8 גווני קטגוריה מאומתים, Heebo |
 
 ---
 
@@ -165,6 +183,19 @@ app/budget/page.tsx        מסך. Server Component בלבד
 app/budget/actions.ts      setBudgetAction/deleteBudgetAction. Server Actions
 components/budget/parts.tsx  BudgetRow, NewBudgetForm
 scripts/budget-check.mts   דוח תקציב משורת הפקודה
+
+— בית, יתרה, המלצות, טיקר —
+lib/accounts/engine.ts     פונקציות טהורות: summarizeBalance (יתרה, דלתא, sparkline)
+lib/accounts/store.ts      שכבת המסד. bankBalance — null כשאין חשבון בנק
+lib/recommendations/engine.ts  שלוש תובנות מנוסחות: הוראת קבע, חריגת תקציב, כסף עומד
+lib/recommendations/store.ts   שכבת המסד. קורא ל-recurring/budget/savings הקיימים
+lib/market/index.ts        טיקר שוק. Twelve Data, ETF proxies ל-S&P/Nasdaq
+components/home/parts.tsx  BalanceCard/ForecastCard/GoalProgress/PlanCard/PendingBanner
+components/home/ask-box.tsx     תיבת שאלה חופשית ← /chat?q=
+components/home/market-ticker.tsx  כרטיס הטיקר
+lib/categories/palette.ts  slug → צבע קטגוריאלי (8 slots) + אייקון
+components/categories/icon.tsx  אוסף אייקוני SVG. מפתחות רק מ-CATEGORY_TREE
+components/dashboard/category-donut.tsx  CategoryDonut, TopCategoryTiles
 ```
 
 ---
@@ -435,6 +466,21 @@ npx tsx scripts\import-file.mts --dry <קבצים>
 ~~**4.7** — מסך הכרעה בממשק~~ **נסגר בשלב 6.2.** סקציית "ממתין להכרעה"
 במסך התנועות (ובדף הבית) מחליפה את מה שקודם היה רק `decide.mts`.
 
+**מעבר למפרט המקורי, אותו יום — לא "פערים", תוספות חדשות:**
+
+- ✅ **יתרה והמלצות** (commit `d37b5dc`) — `lib/accounts` מנסח
+  `balanceAfter` קיים; `lib/recommendations` מנסח שלוש תובנות
+  מ-`recurring`/`budget`/`savings` הקיימים בלי לחשב דבר בעצמו. 13
+  טסטים חדשים
+- ✅ **מסד עיצוב + מעבר טוקנים** (commit `f2ec05e`) — כחול כצבע
+  מותג, שמונה גווני קטגוריה מאומתים (dataviz: עוגני גוון קבועים,
+  CVD delta-E≥8), Heebo. דשבורד/חיסכון/תקציב/צ'אט/ייבוא עברו מ-
+  `black/white` גולמי לטוקנים סמנטיים
+- ✅ **מרכז שליטה בדף הבית + טיקר שוק + Pluxer** (commit `e49dcbe`) —
+  AskBox מפנה ל-`/chat?q=`, יתרה/המלצות/תוכנית מוצגות בדף הבית,
+  טיקר SPY/QQQ/AAPL/NVDA חי דרך Twelve Data (Stooq ננטש — anti-bot
+  challenge, לא CSV), ושם הבוט בממשק שונה ל-Pluxer
+
 **שלב 8 (תוכנית פיננסית) — נסגר במלואו ב-25.08:**
 
 - ✅ **8.1–8.3, 8.5** — CRUD מלא (`app/savings`), חישוב סכום חודשי
@@ -457,7 +503,9 @@ npx tsx scripts\import-file.mts --dry <קבצים>
   ש-`DATABASE_URL` עודכן גם ב-`.env` וגם ב-Vercel
 - משתני סביבה: `DATABASE_URL`, `DIRECT_URL`, שני מפתחות Clerk,
   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
-  אופציונלי: `PLUX_AI_PROVIDER` (`none` כברירת מחדל, `mock` לבדיקות)
+  אופציונלי: `PLUX_AI_PROVIDER` (`none` כברירת מחדל, `mock` לבדיקות),
+  `TWELVE_DATA_API_KEY` (טיקר השוק בדף הבית — בלעדיו הטיקר פשוט לא
+  מופיע, לא שגיאה)
 - ה-cron רשום ב-Vercel → Settings → Cron Jobs. `vercel.json` בריפו אינו
   אותו דבר כמו משימה רשומה במערכת
 - **אחרי כל מיגרציה: `npx prisma generate` מפורש.** `migrate dev` לא תמיד

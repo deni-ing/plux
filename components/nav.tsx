@@ -7,6 +7,7 @@
  *
  *    << נוסף "שיחה" בסעיף 7.3 — קישור חמישי, לא שינוי מבנה.
  *    << נוסף "יעדי חיסכון" בשלב 8 — קישור שישי, אותו עיקרון.
+ *    << נוסף "תקציב" (Budget) — קישור שביעי.
  */
 
 import Link from "next/link";
@@ -17,6 +18,7 @@ const LINKS = [
   { href: "/transactions", label: "תנועות" },
   { href: "/chat", label: "שיחה" },
   { href: "/savings", label: "יעדי חיסכון" },
+  { href: "/budget", label: "תקציב" },
   { href: "/import", label: "ייבוא" },
 ];
 

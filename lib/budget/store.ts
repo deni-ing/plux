@@ -22,7 +22,10 @@ export type BudgetLine = {
  * בדיוק כמו שהדשבורד מציג. תקציב יכול להיות מוגדר על כל אחת מהשתיים,
  * ולכן שתיהן משוטחות למפה אחת לפי slug.
  */
-function flattenSpend(categories: SnapshotFacts["categories"]): Map<string, Agorot> {
+// << מיוצאת: lib/recommendations/store.ts צריכה את אותה שיטוח בדיוק
+// כדי לבדוק חריגת תקציב על כמה חודשים — שכפול היה יוצר שני מימושים
+// לאותה הגדרה, בדיוק הלקח שכבר תועד כמה פעמים בפרויקט הזה.
+export function flattenSpend(categories: SnapshotFacts["categories"]): Map<string, Agorot> {
   const map = new Map<string, Agorot>();
   for (const c of categories) {
     if (c.slug) map.set(c.slug, c.total);

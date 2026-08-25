@@ -90,3 +90,28 @@ export async function avgMonthlyNet(db: Db, userId: string): Promise<Agorot | nu
   const sum = nets.reduce((a, b) => a + b, 0);
   return Math.round(sum / nets.length);
 }
+
+/**
+ * ממוצע הוצאה חודשית, באותה מדיניות בדיוק כמו avgMonthlyNet למעלה
+ * (עד 3 חודשים מלאים, מדלג על partial). קלט לטיפ "כסף עומד ללא
+ * ריבית" ב-lib/recommendations/engine.ts — יתרה נמדדת מול הוצאה
+ * טיפוסית, לא מול נטו שיכול להיות מנופח מהכנסה.
+ */
+export async function avgMonthlyExpense(db: Db, userId: string): Promise<Agorot | null> {
+  const keys = await availableMonths(db, userId);
+  if (keys.length === 0) return null;
+
+  const expenses: Agorot[] = [];
+  for (const key of keys) {
+    if (expenses.length >= 3) break;
+    const period = parseMonthKey(key);
+    if (!period) continue;
+    const result = await factsFor(db, userId, period);
+    if (!result || result.facts.period.partial) continue;
+    expenses.push(result.facts.totals.expense);
+  }
+
+  if (expenses.length === 0) return null;
+  const sum = expenses.reduce((a, b) => a + b, 0);
+  return Math.round(sum / expenses.length);
+}

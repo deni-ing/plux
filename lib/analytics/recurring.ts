@@ -95,7 +95,11 @@ export type RecurringOptions = {
   asOf?: Date;
 };
 
-function median(sorted: readonly number[]): number {
+// << מיוצאות (median/regularity/stability): המזהה החדש להעברה חוזרת
+// לחיסכון (lib/recommendations/engine.ts) צריך בדיוק אותה סטטיסטיקה
+// על TRANSFER_OUT, ש-findRecurring למעלה מדיר במפורש. שכפול הנוסחה
+// היה יוצר שני מימושים לאותה הגדרה — בדיוק הלקח החוזר בפרויקט הזה.
+export function median(sorted: readonly number[]): number {
   const n = sorted.length;
   if (n === 0) return 0;
   const mid = n >> 1;
@@ -126,7 +130,7 @@ const PER_YEAR: Record<Cadence, number> = {
 };
 
 /** 0..1 — כמה אחיד הקצב. פער יחיד מקבל 1 כי אין ממה לסטות. */
-function regularity(gaps: readonly number[]): number {
+export function regularity(gaps: readonly number[]): number {
   if (gaps.length < 2) return 1;
   const mean = gaps.reduce((s, g) => s + g, 0) / gaps.length;
   if (mean === 0) return 0;
@@ -135,7 +139,7 @@ function regularity(gaps: readonly number[]): number {
 }
 
 /** 0..1 — כמה יציב הסכום. */
-function stability(amounts: readonly Agorot[]): number {
+export function stability(amounts: readonly Agorot[]): number {
   const min = amounts[0];
   const max = amounts[amounts.length - 1];
   if (max === 0) return 0;

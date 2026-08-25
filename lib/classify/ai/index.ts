@@ -10,21 +10,22 @@
 
 import { NullClassifier, type CategoryClassifier } from "./types";
 import { MockClassifier } from "./mock";
+import { ClaudeClassifier } from "./claude";
 
 export { NullClassifier } from "./types";
 export type { AiVerdict, CategoryClassifier } from "./types";
 export { MockClassifier } from "./mock";
+export { ClaudeClassifier, CLASSIFY_MODEL } from "./claude";
 export { SYSTEM_PROMPT, buildUserPrompt, parseVerdicts } from "./prompt";
 
 /**
  * בוחר מסווג לפי משתנה סביבה `PLUX_AI_PROVIDER`.
  *
- * להוספת ספק אמיתי בעתיד, שלושה דברים ותו לא:
- *   1. קובץ חדש כאן שמממש `CategoryClassifier`.
- *   2. ענף נוסף ב-switch למטה.
- *   3. המפתח ב-`.env` וב-Vercel — **בלי** קידומת `NEXT_PUBLIC_`.
- *
- * שום קוד אחר בפרויקט לא צריך להשתנות. זו כל הנקודה של הממשק.
+ * << סעיף 4.8: `claude` נוסף כאן והוא הספק האמיתי הראשון. שים לב
+ *    שהוא נפרד לגמרי מהצ'אט — משתמש באותו `ANTHROPIC_API_KEY` שכבר
+ *    מוגדר (הצ'אט כבר תלוי בו בייצור), אבל בקריאה נפרדת, בלי כלים,
+ *    ובלי שיחה. להריץ `ai-eval` לפני שמחליפים `none`/`mock` ב-`claude`
+ *    בייצור — דיוק נמוך מזיק יותר מכיסוי חסר.
  */
 export function getClassifier(): CategoryClassifier {
   const kind = (process.env.PLUX_AI_PROVIDER ?? "none").toLowerCase();
@@ -35,6 +36,8 @@ export function getClassifier(): CategoryClassifier {
     case "mock":
       // דטרמיניסטי, בלי רשת. לבדיקת הצינור ולסקריפט ההערכה.
       return new MockClassifier();
+    case "claude":
+      return new ClaudeClassifier();
     default:
       // ספק לא מוכר הוא כנראה שגיאת הקלדה ב-env, ועדיף לומר זאת בקול
       // מאשר לסווג בשקט אפס תנועות ולהיראות כאילו הכל תקין.

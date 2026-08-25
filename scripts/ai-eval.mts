@@ -26,9 +26,7 @@
  */
 
 import "dotenv/config";
-import { withUser } from "../lib/db/client";
-import { loadRules } from "../lib/classify/store";
-import { classify } from "../lib/classify/engine";
+import { prisma, withUser } from "../lib/db/client";
 import { getClassifier, MockClassifier } from "../lib/classify/ai/index";
 import { allowedSlugsForAi } from "../lib/classify/ai/run";
 import { parentSlug } from "../lib/categories/tree";
@@ -58,28 +56,18 @@ if (classifier.name === "none") {
 
 const truth = await withUser(userId, async (db) => {
   const rows = await db.transaction.findMany({
+    // << עד סעיף 4.10, `categorySource = "RULE"` כיסה גם החלטות
+    //    לפי סוג תנועה (עמלה, זיכוי, חיוב כרטיס) — מידע שהמסווג לא
+    //    רואה ולעולם לא יראה, ולהשאיר אותן באמת המידה היה למדוד אותו
+    //    על מה שלא נתנו לו. אחרי הפיצול ל-RULE / TXN_KIND, "RULE"
+    //    כאן כבר אומר "כלל על שם בית עסק" ותו לא — בלי שום סינון נוסף.
     where: { userId, categorySource: "RULE", categoryId: { not: null } },
     select: { merchant: true, category: { select: { slug: true } } },
   });
 
-  // ─── סינון קריטי להוגנות המדד ───
-  //
-  // `categorySource = "RULE"` מכסה שתי הכרעות שונות: כלל על שם בית העסק,
-  // ו-מיפוי לפי סוג התנועה שהפרסר קבע (עמלה, זיכוי, חיוב כרטיס).
-  //
-  // רק הראשונה נגזרת מהמחרוזת. השנייה נגזרת ממידע שהמסווג לא רואה
-  // ולעולם לא יראה — "סופר פוש" נראה כמו סופרמרקט, והוא זיכוי.
-  // להשאיר אותה באמת המידה זה למדוד את המסווג על מה שלא נתנו לו.
-  //
-  // הבדיקה: מריצים את המנוע על השם *בלבד* — בלי kind, בלי קטגוריית ספק.
-  // מה שעדיין מוכרע, הוכרע מהמחרוזת.
-  const rules = await loadRules(db, userId);
-
   const map = new Map<string, string>();
   for (const r of rows) {
     if (!r.merchant || !r.category?.slug) continue;
-    const fromNameAlone = classify({ merchant: r.merchant }, rules);
-    if (!fromNameAlone) continue;
     map.set(r.merchant, r.category.slug);
   }
   return map;
@@ -157,4 +145,10 @@ if (answered === 0) {
   console.log(`${R}הוא ימלא את הדוחות בקטגוריות סבירות למראה ושגויות.${O}`);
 }
 
-process.exit(0);
+await prisma.$disconnect();
+// << לא process.exit(0) בכוונה: זו בדיוק הקריסה שנצפתה — process.exit()
+// הורג את התהליך באמצע, ואם ל-Anthropic SDK יש עדיין socket keep-alive
+// פתוח (undici), Windows תופס את זה כתקלת handle ברמת libuv. exitCode
+// נותן ל-Node לסיים בעצמו ברגע שה-event loop מתרוקן — התהליך עדיין
+// יוצא, רק בלי להרוג handle באמצע ניקוי.
+process.exitCode = 0;

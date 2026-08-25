@@ -1,6 +1,6 @@
 # Plux — מצב הפרויקט
 
-עדכון אחרון: 24.08.2026 (סוף יום 7)
+עדכון אחרון: 25.08.2026 (יום 8)
 
 מסמך מסירה. נועד לאפשר לשיחה חדשה להמשיך מכאן בלי לגלות מחדש
 מה נבנה, למה, ומה כבר נבדק. **קרא אותו לפני שאתה משנה קוד.**
@@ -15,7 +15,13 @@
 מקבל CRUD מלא, חישוב סכום חודשי נדרש, ובדיקת ריאליות מול הנטו הממוצע
 בפועל (commit `715cd8b`). זה גם הקוד הראשון בפרויקט שכותב ל-`Decimal`
 ולא רק קורא ממנו — ראו החלטה 11. מסומן ✅ למטה: 8.1–8.3, 8.5.
-עדיין לא: 8.4 (צעדים מומלצים), ו-`Budget` (עדיין רק מודל בסכימה).
+עדיין לא: 8.4 (צעדים מומלצים).
+
+**עדכון מיום 25.08:** `Budget` (תקציב חודשי לפי קטגוריה) נבנה במלואו —
+מנוע `under`/`near`/`over` עם סף 80% להתראה מוקדמת, `setBudget` כ-upsert
+יחיד לפי [userId, categoryId], מסך `/budget` שקורא ל-`factsFor` הקיים
+ולא מחשב הוצאה בעצמו (commit `1ba0091`). מהמפרט המקורי נשאר פתוח רק
+8.4 (צעדים מומלצים ליעד חיסכון).
 
 ---
 
@@ -64,7 +70,7 @@ Prisma 7.9.1 · PostgreSQL ב-Supabase · Clerk לזהות · Vercel לדיפל�
 | **צ'אט (שלב 7)** | ✅ שלושה כלים, הזרמה, טרנזקציה קצרה לכלי |
 | שכבת AI (צ'אט) | ✅ מחובר בפועל ל-Claude, לא מדומה |
 | **יעדי חיסכון (שלב 8.1–8.3, 8.5)** | ✅ CRUD, חישוב חודשי נדרש, ריאליות, אזהרה |
-| Budget | ❌ מודל בסכימה בלבד, אין קוד סביבו |
+| Budget | ✅ מנוע under/near/over, upsert, מסך /budget |
 
 ---
 
@@ -138,6 +144,14 @@ app/savings/page.tsx       מסך. Server Component בלבד
 app/savings/actions.ts     יצירה/הפקדה/מחיקה. Server Actions
 components/savings/parts.tsx  GoalCard, NewGoalForm
 scripts/savings-check.mts  דוח יעדים משורת הפקודה
+
+— שלב 8, תקציב —
+lib/budget/engine.ts       פונקציות טהורות: budgetStatus (under/near/over), budgetPct
+lib/budget/store.ts        שכבת המסד. setBudget הוא upsert יחיד לפי [userId, categoryId]
+app/budget/page.tsx        מסך. Server Component בלבד
+app/budget/actions.ts      setBudgetAction/deleteBudgetAction. Server Actions
+components/budget/parts.tsx  BudgetRow, NewBudgetForm
+scripts/budget-check.mts   דוח תקציב משורת הפקודה
 ```
 
 ---
@@ -404,7 +418,7 @@ npx tsx scripts\import-file.mts --dry <קבצים>
 ~~**4.7** — מסך הכרעה בממשק~~ **נסגר בשלב 6.2.** סקציית "ממתין להכרעה"
 במסך התנועות (ובדף הבית) מחליפה את מה שקודם היה רק `decide.mts`.
 
-**שלב 8 (יעדי חיסכון) — פתוח חלקית, נבנה היום:**
+**שלב 8 (יעדי חיסכון) — פתוח חלקית:**
 
 - ✅ **8.1–8.3, 8.5** — CRUD מלא (`app/savings`), חישוב סכום חודשי
   נדרש ובדיקת ריאליות מול הנטו הממוצע בפועל (`lib/savings/engine.ts`),
@@ -412,11 +426,13 @@ npx tsx scripts\import-file.mts --dry <קבצים>
   דרך `savings-check.mts` (נטו חודשי ממוצע ₪11,354.50 חושב נכון)
 - ❌ **8.4** — צעדים מומלצים מתוך ממצאי המנוע. לא נבנה
 
-**לא התחיל בכלל (מהמפרט המקורי, לא מתת-המשימות של שלב כלשהו):**
+**`Budget` — נסגר ב-25.08 (commit `1ba0091`):**
 
-- **`Budget`** — תקציב חודשי לפי קטגוריה. המודל קיים בסכימה, אין אף
-  שאילתה או מסך סביבו. (חיובים חוזרים כבר מזוהים דרך `recurring.ts`
-  בלי טבלת `Subscription` נפרדת — זו בחירה מודעת, לא פער.)
+תקציב חודשי לפי קטגוריה. מנוע טהור (`lib/budget/engine.ts`) עם סף 80%
+להתראה מוקדמת, `setBudget` הוא upsert יחיד לפי [userId, categoryId]
+(לא שני מסלולים ליצירה/עדכון), מסך `/budget` שקורא ל-`factsFor` הקיים
+ולא מחשב הוצאה בעצמו. 9 טסטים חדשים. (חיובים חוזרים כבר מזוהים דרך
+`recurring.ts` בלי טבלת `Subscription` נפרדת — זו בחירה מודעת, לא פער.)
 
 **הערות תפעוליות:**
 

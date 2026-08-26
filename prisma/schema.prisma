@@ -152,6 +152,16 @@ model Transaction {
   // << לא נכלל באנליטיקת הוצאות: העברות P2P, וחיובי CARD_SETTLEMENT שמונים פעמיים.
   countsAsSpending Boolean @default(true)
 
+  // << מ-26.08, החלטת משתמש: תנועה עם תאריך חיוב פרטני אמיתי (שונה
+  //    מתאריך העסקה בפועל ברמת השורה עצמה — היום זה אומר בפועל: גיליון
+  //    חו״ל/מט״ח של MAX, לא הגיליון הרגיל שבו chargedAt הוא תאריך
+  //    החיוב המרוכז האחיד של כל הדוח) לא נספרת בהוצאות לפי bookedAt.
+  //    היא "ממתינה" עד chargedAt, ואז "משולמת" — יורדת מתחזית היתרה
+  //    (lib/accounts/store.ts) ומוחרגת לגמרי מ-lib/analytics/load.ts.
+  //    לא countsAsSpending: זו שאלה אחרת (התנועה לא "העברה", היא הוצאה
+  //    אמיתית) — רק *מתי ואיך* היא נספרת שונה.
+  individualChargeDate Boolean @default(false)
+
   // << ה-hash בנוי רק משדות שיציבים במעבר ממתין→נקלט:
   //    bookedAt + merchantRaw + originalAmount + originalCurrency + cardLast4.
   //    בלי סכום חיוב, בלי סטטוס, בלי תאריך חיוב.

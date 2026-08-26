@@ -36,6 +36,13 @@ const SLOT_BY_SLUG: Record<string, CategorySlot> = {
   education: 7,
   insurance: 7,
   telecom: 8,
+  transfers_out: 6,
+  fuel_utilities: 3,
+  fees: 1,
+  // << travel לצד telecom: telecom תמיד קטן ויציב, אז גם בחודש שבו travel
+  //    גדול (חופשה), אין ממש התנגשות ויזואלית — הפרוסה הקטנה של telecom
+  //    לא מתחרה בזיהוי מול הפרוסה הגדולה של travel.
+  travel: 8,
 };
 
 const DEFAULT_SLOT: CategorySlot = 4;

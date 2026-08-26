@@ -25,10 +25,19 @@ import { toAgorot } from "./money";
 import type { Period } from "./period";
 import type { AnalyticsTxn } from "./spend";
 
-/** התנאי המינימלי שמכסה את שני הבסיסים. */
+/**
+ * התנאי המינימלי שמכסה את שני הבסיסים.
+ *
+ * << `individualChargeDate: false` מ-26.08: תנועה עם תאריך חיוב פרטני
+ *    אמיתי (היום: גיליון חו״ל/מט״ח של MAX) לא נכנסת לאנליטיקת ההוצאות
+ *    כלל — לא לפי booked ולא לפי charged. היא מנוהלת בנפרד לגמרי דרך
+ *    lib/accounts/store.ts (ממתינה → משולמת → יורדת מהיתרה), ולעולם לא
+ *    כהוצאת קטגוריה. ראו ההערה על השדה בסכימה.
+ */
 function windowWhere(userId: string, from: Date, to: Date) {
   return {
     userId,
+    individualChargeDate: false,
     OR: [
       { bookedAt: { gte: from, lt: to } },
       { chargedAt: { gte: from, lt: to } },

@@ -11,9 +11,18 @@
  *     במסד. `withUser` כבר עוטף בטרנזקציה, וזו סיבה נוספת לכך שהיא שם.
  *     הסיווג, לעומת זאת, רץ אחריה ובנפרד — ראו את ההערה ב-`ingestStatement`.
  *
- *  2. **כפילויות מדולגות, לא נדרסות.** `skipDuplicates` נשען על המפתח
- *     הייחודי (userId, dedupHash, occurrence). ייבוא חוזר של אותו קובץ
- *     לא ייצור שורות חדשות ולא ידרוס תיקוני סיווג שהמשתמש עשה.
+ *  2. **קובץ לאותה תקופת דוח מחליף את הקודם, לא מצטרף אליו.** לפני
+ *     שנכתבות השורות החדשות, כל `ImportJob` קודם של אותו חשבון עם אותו
+ *     `statementPeriod` נמחק על כל התנועות שלו — ראו `replaceStalePeriod`
+ *     למטה. קובץ MAX "09/2026" שהתעדכן (יותר ימים, עסקאות שעברו
+ *     ממתין→נקלט) הוא תמונת מצב חדשה של אותה תקופה, לא נתונים נוספים
+ *     שצריך לדדפ ברמת השורה מולם. `skipDuplicates` על המפתח הייחודי
+ *     (userId, dedupHash, occurrence) עדיין קיים כרשת ביטחון נוספת —
+ *     אם ה-statementPeriod לא זוהה (`null`), אין מה להחליף וזו ההגנה
+ *     היחידה שנשארת. תיקוני סיווג ידניים לא נפגעים מההחלפה: הם נשמרים
+ *     כ-`CategoryRule` לפי שם בית עסק (`lib/classify/user.ts`), לא על
+ *     מזהה השורה, ומופעלים מחדש על השורות החדשות ב-`runClassification`
+ *     למטה.
  *
  *  3. **החשבון מזוהה לפי (ספק, תווית) ולא נוצר מחדש בכל ייבוא.**
  *     אחרת כל דוח חודשי היה יוצר "כרטיס" נוסף, וההיסטוריה הייתה מתפצלת.
@@ -97,6 +106,8 @@ async function writeStatement(
 
     const account = await upsertAccount(db, userId, result);
 
+    await replaceStalePeriod(db, userId, account.id, result.statementPeriod);
+
     const job = await db.importJob.create({
       data: {
         // המזהה נקבע מראש רק כשהגיע מבחוץ. אחרת @default(uuid()) עושה את שלו.
@@ -137,6 +148,7 @@ async function writeStatement(
         note: t.note,
         balanceAfter: t.balanceAfter,
         countsAsSpending: t.countsAsSpending,
+        individualChargeDate: t.individualChargeDate,
         dedupHash: t.dedupHash,
         occurrence: t.occurrence,
       })),
@@ -179,6 +191,43 @@ async function writeStatement(
       warnings: result.warnings,
     };
   });
+}
+
+/**
+ * מוחק כל ImportJob קודם של אותו חשבון עם אותה תקופת דוח — ואת כל
+ * התנועות שהצביעו אליו — לפני שהחדש נכתב.
+ *
+ * `statementPeriod: null` (פרסר שלא זיהה תקופה) יוצא מיד בלי למחוק
+ * כלום: בלי מפתח השוואה אין דרך לדעת מה "אותה תקופה", ועדיף להישאר עם
+ * ההתנהגות הישנה (דדופ ברמת השורה) מאשר לנחש ולמחוק נתונים בטעות.
+ */
+async function replaceStalePeriod(
+  db: Db,
+  userId: string,
+  accountId: string,
+  statementPeriod: string | null
+): Promise<void> {
+  if (!statementPeriod) return;
+
+  // << ל-ImportJob אין accountId משלו (הוא מוצמד לחשבון רק דרך
+  //    התנועות שהוא כתב). לכן ה"אותו חשבון" נגזר מהתנועות עצמן, לא
+  //    משאילתה ישירה על ImportJob — אחרת שני כרטיסי MAX של אותו
+  //    משתמש עם אותה תקופת דוח (זה קורה) היו מוחקים זה את זה.
+  const staleRows = await db.transaction.findMany({
+    where: { userId, accountId, importJob: { statementPeriod } },
+    select: { importJobId: true },
+    distinct: ["importJobId"],
+  });
+  const staleIds = staleRows
+    .map((r) => r.importJobId)
+    .filter((id): id is string => id !== null);
+  if (staleIds.length === 0) return;
+
+  // סדר הכרחי: מפתח זר Transaction.importJobId הוא onDelete: SetNull,
+  // לא Cascade — מחיקת ה-ImportJob לבדה הייתה משאירה את התנועות יתומות
+  // (importJobId=null) במקום למחוק אותן.
+  await db.transaction.deleteMany({ where: { userId, importJobId: { in: staleIds } } });
+  await db.importJob.deleteMany({ where: { id: { in: staleIds } } });
 }
 
 async function upsertAccount(db: Db, userId: string, result: StatementResult) {

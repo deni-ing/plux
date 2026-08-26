@@ -9,8 +9,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { parseStatement, UnsupportedFileError } from "@/lib/parsers";
 import { ingestStatement } from "@/lib/import/ingest";
-import { syncCurrentUser } from "@/lib/db/session";
+import { syncCurrentUser, withCurrentUser } from "@/lib/db/session";
 import { storeStatement } from "@/lib/storage/statements";
+import { recomputeSnapshots } from "@/lib/analytics/recompute";
 import { randomUUID } from "node:crypto";
 
 // unpdf, zlib ו-crypto דורשים Node. ב-edge runtime זה ייפול.
@@ -106,6 +107,20 @@ export async function POST(req: Request) {
           : "הפענוח נכשל. ודא שזה קובץ דוח מקורי שלא נערך.";
       console.error("import failed", file.name, e);
       results.push({ file: file.name, ok: false, error: message });
+    }
+  }
+
+  // << אותה החלטה כמו ב-app/transactions/actions.ts: הסנפשוט הוא תוצר
+  //    של הייבוא ולא תנאי להצלחתו. בלי זה, ייבוא לתוך חודש שכבר יש לו
+  //    סנפשוט (למשל דף MAX מעודכן על אותו חודש) משאיר את הדשבורד מציג
+  //    סנפשוט תקף-אך-ישן — readSnapshot לא בודק אם נוספו תנועות, רק אם
+  //    הגרסה עדכנית. ראו lib/analytics/recompute.ts.
+  if (results.some((r) => r.ok)) {
+    try {
+      await withCurrentUser((db) => recomputeSnapshots(db, userId, { force: true }));
+    } catch (e) {
+      console.error("recomputeSnapshots after import failed", e);
+      // הדשבורד ייפול חזרה לחישוב חי. ראה lib/analytics/facts.ts
     }
   }
 

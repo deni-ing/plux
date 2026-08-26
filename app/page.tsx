@@ -35,7 +35,7 @@ import Link from "next/link";
 import { currentUserId, withCurrentUser } from "../lib/db/session";
 import { factsFor, latestPeriod } from "../lib/analytics/facts";
 import { pendingByMerchant } from "../lib/txns/browse";
-import { bankBalance } from "../lib/accounts/store";
+import { bankBalance, upcomingCharges } from "../lib/accounts/store";
 import { avgMonthlyNet, listGoals } from "../lib/savings/store";
 import { assessRealism, goalStatus } from "../lib/savings/engine";
 import { loadRecommendations } from "../lib/recommendations/store";
@@ -49,6 +49,7 @@ import {
   PendingBanner,
   PlanCard,
   SpendSnapshotCard,
+  UpcomingChargesCard,
 } from "../components/home/parts";
 
 export const dynamic = "force-dynamic";
@@ -75,18 +76,23 @@ export default async function Home() {
     );
   }
 
+  // << מ-26.08: נקרא כאן, פעם אחת, ולא בכל מקום שצריך "עכשיו" בנפרד —
+  //    ראו ההערה המלאה ב-lib/accounts/store.ts:bankBalance.
+  const asOf = new Date();
+
   const data = await withCurrentUser(async (db) => {
     const period = await latestPeriod(db, userId);
     if (!period) return null;
-    const [result, pending, balance, goals, net, recommendations] = await Promise.all([
+    const [result, pending, balance, upcoming, goals, net, recommendations] = await Promise.all([
       factsFor(db, userId, period),
       pendingByMerchant(db, userId, 100),
-      bankBalance(db, userId),
+      bankBalance(db, userId, asOf),
+      upcomingCharges(db, userId, asOf),
       listGoals(db, userId),
       avgMonthlyNet(db, userId),
       loadRecommendations(db, userId),
     ]);
-    return { period, facts: result?.facts ?? null, pending, balance, goals, net, recommendations };
+    return { period, facts: result?.facts ?? null, pending, balance, upcoming, goals, net, recommendations };
   });
 
   if (!data || !data.facts) {
@@ -108,13 +114,12 @@ export default async function Home() {
     );
   }
 
-  const { facts, pending, balance, goals, net, recommendations } = data;
+  const { facts, pending, balance, upcoming, goals, net, recommendations } = data;
   const pendingTotal = pending.reduce((s, p) => s + p.total, 0);
 
-  // << "עכשיו" נקרא פעם אחת כאן, לא במנוע — אותו עיקרון בדיוק כמו
-  //    app/savings/page.tsx. היעד המוצג הוא הראשון לפי targetAt
-  //    (listGoals כבר ממיין כך): התוכנית הבודדת שהכי קרובה בזמן.
-  const asOf = new Date();
+  // << היעד המוצג הוא הראשון לפי targetAt (listGoals כבר ממיין כך):
+  //    התוכנית הבודדת שהכי קרובה בזמן. `asOf` עצמו נקרא למעלה, לפני
+  //    withCurrentUser — ראו ההערה שם.
   const primaryGoal = goals[0] ?? null;
   const primaryStatus = primaryGoal ? goalStatus(primaryGoal, asOf) : null;
   const primaryRealism = primaryStatus ? assessRealism(primaryStatus.requiredMonthly, net) : null;
@@ -177,6 +182,16 @@ export default async function Home() {
           recommendations={recommendations}
         />
       </div>
+
+      {/* << מ-26.08: תנועות עם תאריך חיוב פרטני (חו״ל/מט״ח) לא נכנסות
+          לשום דוח הוצאות יותר — ראו lib/analytics/load.ts. בלי הכרטיס
+          הזה הן פשוט ייעלמו מהתצוגה עד שיחויבו, וזה בדיוק מה שהמשתמש
+          ביקש שלא יקרה: "אני רוצה שהאפליקציה גם תראה את זה". */}
+      {upcoming.length > 0 ? (
+        <div className="mt-4">
+          <UpcomingChargesCard charges={upcoming} />
+        </div>
+      ) : null}
 
       {/* << הפעולה לפני הקישורים. אם יש משהו להכריע, זה הדבר היחיד
           שהמסך הזה צריך לבקש. */}

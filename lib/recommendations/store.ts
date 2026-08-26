@@ -59,8 +59,11 @@ export async function loadRecommendations(db: Db, userId: string): Promise<Recom
   const budgetStreaks = budgetOverStreak(spendByMonth, caps);
 
   // 3. כסף עומד ללא ריבית — יתרת בנק מול הוצאה חודשית טיפוסית.
+  //    << "עכשיו" נקרא כאן ולא הועבר מבחוץ: לשכבה הזו (כמו לכל שכבת
+  //    store אחרת) כבר מותר לגעת בשעון — רק lib/analytics/spend.ts
+  //    ודומיו, שהם המנוע הטהור, אסור להם. ראו ההערה ב-accounts/store.ts.
   const [balance, avgExpense] = await Promise.all([
-    bankBalance(db, userId),
+    bankBalance(db, userId, new Date()),
     avgMonthlyExpense(db, userId),
   ]);
   const idleCash =

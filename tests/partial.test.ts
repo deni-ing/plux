@@ -17,6 +17,10 @@ import {
   type AnalyticsTxn,
 } from "../lib/analytics/spend";
 
+// << מ-26.08: כל התאריכים כאן על יום >= 7 בחודש — התקופה מתחילה עכשיו
+//    ב-7, לא ב-1. "יום 17 בתקופה" הוא עכשיו 23 בחודש (7+16), ו"יום 31
+//    בתקופה" (היום האחרון) הוא ה-6 בחודש הבא (7+30) — ראו lib/analytics/period.ts.
+
 function t(
   id: string,
   booked: [number, number, number],
@@ -36,7 +40,7 @@ function t(
 }
 
 describe("עזרי ימים", () => {
-  const AUG = monthPeriod(2026, 8);
+  const AUG = monthPeriod(2026, 8); // [2026-08-07, 2026-09-07)
 
   it("סופר ימים בחודש", () => {
     assert.equal(daysIn(AUG), 31);
@@ -46,21 +50,21 @@ describe("עזרי ימים", () => {
   });
 
   it("היום בתקופה הוא 1-based", () => {
-    assert.equal(dayOfPeriod(utcDate(2026, 8, 1), AUG), 1);
-    assert.equal(dayOfPeriod(utcDate(2026, 8, 17), AUG), 17);
-    assert.equal(dayOfPeriod(utcDate(2026, 8, 31), AUG), 31);
+    assert.equal(dayOfPeriod(utcDate(2026, 8, 7), AUG), 1);
+    assert.equal(dayOfPeriod(utcDate(2026, 8, 23), AUG), 17);
+    assert.equal(dayOfPeriod(utcDate(2026, 9, 6), AUG), 31);
   });
 
   it("firstDays חותך חלון חצי־פתוח", () => {
     const w = firstDays(monthPeriod(2026, 7), 17);
-    assert.equal(isoDay(w.from), "2026-07-01");
-    assert.equal(isoDay(w.to), "2026-07-18");
+    assert.equal(isoDay(w.from), "2026-07-07");
+    assert.equal(isoDay(w.to), "2026-07-24");
     assert.equal(daysIn(w), 17);
   });
 
   it("firstDays לא חורג מהתקופה", () => {
     const w = firstDays(monthPeriod(2026, 2), 90);
-    assert.equal(isoDay(w.to), "2026-03-01");
+    assert.equal(isoDay(w.to), "2026-03-07");
     assert.equal(daysIn(w), 28);
   });
 });
@@ -68,40 +72,43 @@ describe("עזרי ימים", () => {
 describe("חודש חלקי", () => {
   const AUG = monthPeriod(2026, 8);
 
-  /** התנועה האחרונה בנתונים האמיתיים היא ה-17 באוגוסט. */
+  /** התנועה האחרונה בנתונים האמיתיים היא היום ה-17 בתקופה (23 בחודש). */
   const partial = [
-    t("א", [2026, 8, 3], "-100.00"),
-    t("ב", [2026, 8, 17], "-200.00"),
+    t("א", [2026, 8, 9], "-100.00"),
+    t("ב", [2026, 8, 23], "-200.00"),
   ];
 
   it("מזהה שהנתונים נגמרים באמצע", () => {
     const b = breakdownByCategory(partial, AUG);
-    assert.equal(isoDay(b.coverage.lastDataAt!), "2026-08-17");
+    assert.equal(isoDay(b.coverage.lastDataAt!), "2026-08-23");
     assert.equal(b.coverage.daysCovered, 17);
     assert.equal(b.coverage.daysInPeriod, 31);
     assert.equal(b.coverage.partial, true);
   });
 
   it("חודש מלא אינו מסומן כחלקי", () => {
-    const b = breakdownByCategory([...partial, t("ג", [2026, 8, 31], "-50.00")], AUG);
+    // 2026-09-06 הוא היום האחרון בתקופת אוגוסט (7.8–6.9).
+    const b = breakdownByCategory([...partial, t("ג", [2026, 9, 6], "-50.00")], AUG);
     assert.equal(b.coverage.daysCovered, 31);
     assert.equal(b.coverage.partial, false);
   });
 
   /**
    * הבאג שהבדיקה על הנתונים האמיתיים תפסה: שבעה חודשים מ-2025 סומנו
-   * כחלקיים רק כי ביום האחרון שלהם לא הייתה קנייה. **"לא קניתי ב-31
-   * באוקטובר" הוא מידע לגיטימי, לא נתון חסר** — וההבחנה דורשת להסתכל
+   * כחלקיים רק כי ביום האחרון שלהם לא הייתה קנייה. **"לא קניתי ביום
+   * האחרון" הוא מידע לגיטימי, לא נתון חסר** — וההבחנה דורשת להסתכל
    * אל מחוץ לחודש.
    */
   it("חודש ישן שנגמר בלי קנייה ביום האחרון אינו חלקי", () => {
     const txns = [
-      t("אוקטובר", [2025, 10, 30], "-100.00"),
-      t("נובמבר", [2025, 11, 4], "-100.00"),
-      t("אוגוסט", [2026, 8, 17], "-100.00"),
+      // יום לפני סוף תקופת אוקטובר (7.10–6.11 ב-2025) — לא ביום האחרון עצמו.
+      t("אוקטובר", [2025, 11, 5], "-100.00"),
+      // בתוך תקופת נובמבר עצמה — מוכיח שהנתונים נמשכים אחרי אוקטובר.
+      t("נובמבר", [2025, 11, 10], "-100.00"),
+      t("אוגוסט", [2026, 8, 23], "-100.00"),
     ];
     const oct = breakdownByCategory(txns, monthPeriod(2025, 10));
-    assert.equal(isoDay(oct.coverage.lastDataAt!), "2025-10-30");
+    assert.equal(isoDay(oct.coverage.lastDataAt!), "2025-11-05");
     assert.equal(oct.coverage.partial, false);
     assert.equal(oct.coverage.daysCovered, 31);
 
@@ -124,7 +131,8 @@ describe("חודש חלקי", () => {
   });
 
   it("‏dataEndsAt מפורש גובר על הנגזר מהתנועות", () => {
-    const b = breakdownByCategory(partial, AUG, { dataEndsAt: utcDate(2026, 8, 31) });
+    // 2026-09-06 — היום האחרון בתקופת אוגוסט, לא 31 באוגוסט.
+    const b = breakdownByCategory(partial, AUG, { dataEndsAt: utcDate(2026, 9, 6) });
     assert.equal(b.coverage.partial, false);
     assert.equal(b.coverage.daysCovered, 31);
   });
@@ -138,7 +146,7 @@ describe("חודש חלקי", () => {
 
   it("גם העברה נחשבת עדות לכך שהחודש נקלט", () => {
     const b = breakdownByCategory(
-      [t("א", [2026, 8, 3], "-100.00"), t("חיוב מקס", [2026, 8, 20], "-4000.00", "transfer.card_settlement", false)],
+      [t("א", [2026, 8, 9], "-100.00"), t("חיוב מקס", [2026, 8, 26], "-4000.00", "transfer.card_settlement", false)],
       AUG
     );
     assert.equal(b.coverage.daysCovered, 20);
@@ -146,18 +154,18 @@ describe("חודש חלקי", () => {
 });
 
 describe("השוואה מיושרת", () => {
-  const AUG = monthPeriod(2026, 8);
-  const JUL = monthPeriod(2026, 7);
+  const AUG = monthPeriod(2026, 8); // [2026-08-07, 2026-09-07)
+  const JUL = monthPeriod(2026, 7); // [2026-07-07, 2026-08-07)
 
-  // יולי: 300 ₪ בחצי הראשון, 300 ₪ בחצי השני.
+  // יולי: 300 ₪ בתוך 17 הימים הראשונים של התקופה (7–23.7), 300 ₪ אחרי.
   const july = [
-    t("י1", [2026, 7, 5], "-150.00"),
-    t("י2", [2026, 7, 10], "-150.00"),
-    t("י3", [2026, 7, 22], "-150.00"),
-    t("י4", [2026, 7, 28], "-150.00"),
+    t("י1", [2026, 7, 9], "-150.00"),
+    t("י2", [2026, 7, 15], "-150.00"),
+    t("י3", [2026, 7, 26], "-150.00"),
+    t("י4", [2026, 8, 2], "-150.00"),
   ];
-  // אוגוסט: 300 ₪ ב-17 הימים הראשונים. אותו קצב בדיוק.
-  const august = [t("א1", [2026, 8, 5], "-150.00"), t("א2", [2026, 8, 17], "-150.00")];
+  // אוגוסט: 300 ₪ ב-17 הימים הראשונים של התקופה. אותו קצב בדיוק.
+  const august = [t("א1", [2026, 8, 9], "-150.00"), t("א2", [2026, 8, 23], "-150.00")];
 
   const current = breakdownByCategory(august, AUG);
 
@@ -182,7 +190,8 @@ describe("השוואה מיושרת", () => {
   });
 
   it("חודש מלא מול חודש מלא מיושר מעצמו", () => {
-    const full = breakdownByCategory([...august, t("א3", [2026, 8, 31], "-1.00")], AUG);
+    // 2026-09-06 — היום האחרון בתקופת אוגוסט.
+    const full = breakdownByCategory([...august, t("א3", [2026, 9, 6], "-1.00")], AUG);
     const cmp = compareBreakdowns(full, breakdownByCategory(july, JUL));
     assert.equal(cmp.window.aligned, true);
   });
@@ -196,7 +205,7 @@ describe("כיסוי הסיווג", () => {
    * שלא. בספירת תנועות זה נראה מצוין; בשקלים זה שליש מהחודש.
    */
   const txns: AnalyticsTxn[] = [
-    ...Array.from({ length: 23 }, (_, i) => t(`ק${i}`, [2026, 8, (i % 17) + 1], "-95.00")),
+    ...Array.from({ length: 23 }, (_, i) => t(`ק${i}`, [2026, 8, (i % 17) + 7], "-95.00")),
     t("הגדולה", [2026, 8, 12], "-1008.66", null),
   ];
 

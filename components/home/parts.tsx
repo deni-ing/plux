@@ -20,6 +20,7 @@ import Link from "next/link";
 
 import { formatILS } from "../../lib/analytics/money";
 import type { BalanceSummary } from "../../lib/accounts/engine";
+import type { UpcomingCharge } from "../../lib/accounts/store";
 import type { Forecast } from "../../lib/analytics/forecast";
 import type { GoalStatus, Realism, SavingsGoal } from "../../lib/savings/engine";
 import type { Recommendation } from "../../lib/recommendations/engine";
@@ -104,6 +105,7 @@ function Sparkline({ points, positive }: { points: BalanceSummary["sparkline"]; 
 export function BalanceCard({ summary }: { summary: BalanceSummary }) {
   const delta = summary.deltaVsPrior;
   const positive = delta !== null && delta >= 0;
+  const hasMatured = summary.maturedCharges.count > 0;
 
   return (
     <Surface>
@@ -118,6 +120,17 @@ export function BalanceCard({ summary }: { summary: BalanceSummary }) {
       ) : (
         <p className="mt-1 text-xs text-muted">אין עדיין נקודת השוואה</p>
       )}
+
+      {/* << מ-26.08: היתרה למעלה היא מה שדף החשבון האחרון הצהיר עליו —
+          עובדה, לא נוגעים בה. `projected` היא תוספת שקופה: מה שכבר
+          חויב בפועל (לפי תאריך חיוב) אבל טרם הגיע דף חשבון שמשקף את
+          זה. ראו lib/accounts/engine.ts. */}
+      {hasMatured ? (
+        <p className="mt-2 text-xs text-ink-2">
+          בפועל, אחרי {summary.maturedCharges.count} חיובים שכבר עברו:{" "}
+          <span className="font-medium tabular-nums text-ink">{money(summary.projected)}</span>
+        </p>
+      ) : null}
 
       <Sparkline points={summary.sparkline} positive={positive} />
     </Surface>
@@ -306,6 +319,48 @@ export function PlanCard({
           אין כרגע המלצות — נצטרך עוד כמה חודשי נתונים כדי לזהות דפוסים.
         </p>
       )}
+    </Surface>
+  );
+}
+
+// ─────────────────── חיובים בתאריך פרטני ───────────────────
+
+/**
+ * << מ-26.08. תנועות עם תאריך חיוב פרטני (היום: MAX חו״ל/מט״ח) לא
+ *    מופיעות בשום דוח הוצאות — ראו lib/analytics/load.ts. הכרטיס הזה
+ *    הוא המקום היחיד שבו הן בכלל נראות, ולכן הוא לא מוסתר גם כשהכול
+ *    "שולם" (בניגוד ל-PendingBanner, שנעלם כשאין מה להכריע).
+ */
+function ChargeRow({ charge }: { charge: UpcomingCharge }) {
+  const dateLabel = (d: Date) => d.toISOString().slice(0, 10);
+
+  return (
+    <li className="flex items-center justify-between gap-3 text-sm">
+      <div className="min-w-0">
+        <p className="truncate text-ink">{charge.merchant}</p>
+        <p className="mt-0.5 text-xs text-muted">
+          {charge.paid ? (
+            <span className="text-good">שולם ב-{dateLabel(charge.chargedAt!)}</span>
+          ) : charge.chargedAt ? (
+            <span className="text-warn">צפוי חיוב ב-{dateLabel(charge.chargedAt)}</span>
+          ) : (
+            <span>ממתין לתאריך חיוב</span>
+          )}
+        </p>
+      </div>
+      <span className="shrink-0 tabular-nums text-ink-2">{money(charge.amount)}</span>
+    </li>
+  );
+}
+
+export function UpcomingChargesCard({ charges }: { charges: UpcomingCharge[] }) {
+  return (
+    <Surface title="חיובים בתאריך פרטני" hint="לא נכללים בהוצאות החודש">
+      <ul className="mt-3 space-y-3">
+        {charges.map((c) => (
+          <ChargeRow key={c.id} charge={c} />
+        ))}
+      </ul>
     </Surface>
   );
 }

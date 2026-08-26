@@ -87,10 +87,13 @@ function classify(input: {
   // כסף שנכנס חזרה: זיכוי או ביטול עסקה.
   if (input.minor > 0) return { kind: "REFUND", countsAsSpending: true };
 
-  // << העברות P2P אינן צריכה. ספירה שלהן כהוצאה מנפחת כל דוח,
-  //    ובמיוחד כשהצד השני הוא אותו אדם שמעביר לעצמו.
+  // << העברות BIT כן נספרות כהוצאה (החלטה מפורשת, לא ברירת מחדל):
+  //    זה כסף שיצא בפועל ולא חוזר, בניגוד ל-CARD_SETTLEMENT (חיוב
+  //    אשראי מרוכז בבנק) שממש מכפיל תנועה שכבר נספרה בצד MAX. kind
+  //    נשאר TRANSFER_OUT — lib/recommendations/engine.ts מזהה לפיו
+  //    הוראת קבע חוזרת לחיסכון, ולא לפי countsAsSpending.
   if (input.providerCategory === TRANSFER_CATEGORY || input.merchant.toUpperCase() === "BIT") {
-    return { kind: "TRANSFER_OUT", countsAsSpending: false };
+    return { kind: "TRANSFER_OUT", countsAsSpending: true };
   }
 
   // << "הוראת קבע" בעמודת ההערות היא הצהרה של הספק, לא ניחוש סטטיסטי.
@@ -287,6 +290,11 @@ export function parseMaxXlsx(buf: Buffer): MaxParseResult {
         // << עסקאות חו״ל מחויבות בבנק אחת-אחת, ולכן הן כבר מיוצגות שם.
         //    עסקאות מקומיות נצברות לחיוב מרוכז שיסומן CARD_SETTLEMENT ויוחרג.
         countsAsSpending,
+        // << isForeign = לשונית חו״ל/מט״ח. זו הלשונית היחידה היום שבה
+        //    chargedAt הוא תאריך חיוב פרטני אמיתי לשורה (בלשונית הרגילה
+        //    הוא תאריך החיוב המרוכז האחיד של כל הדוח — לא פרטני, ולכן
+        //    לא נכנס למודל הזה). ראו ההערה בסכימה.
+        individualChargeDate: isForeign,
         dedupHash,
         balanceAfter: null,
         occurrence: 0,

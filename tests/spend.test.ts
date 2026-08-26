@@ -49,19 +49,19 @@ function txn(
 const AUG = monthPeriod(2026, 8);
 
 const FIXTURE: AnalyticsTxn[] = [
-  txn("משכורת", [2026, 8, 1], null, "12000.00", "income.salary"),
-  txn("סופר א", [2026, 8, 5], [2026, 9, 10], "-350.50", "food.groceries"),
-  txn("סופר ב", [2026, 8, 12], [2026, 9, 10], "-120.00", "food.groceries"),
-  txn("מסעדה", [2026, 8, 14], [2026, 9, 10], "-89.00", "food.restaurants"),
-  txn("דלק", [2026, 8, 6], [2026, 9, 10], "-250.00", "transport.fuel"),
-  txn("חיוב מקס", [2026, 8, 10], null, "-4300.00", "transfer.card_settlement", false),
-  txn("ביט", [2026, 8, 11], null, "-200.00", "transfer.p2p", false),
-  txn("לא ידוע", [2026, 8, 20], null, "-49.90", null),
-  txn("זיכוי נעליים", [2026, 8, 22], [2026, 9, 10], "200.00", "shopping.clothing"),
-  txn("נעליים", [2026, 8, 3], [2026, 9, 10], "-300.00", "shopping.clothing"),
+  txn("משכורת", [2026, 8, 7], null, "12000.00", "income.salary"),
+  txn("סופר א", [2026, 8, 11], [2026, 9, 10], "-350.50", "food.groceries"),
+  txn("סופר ב", [2026, 8, 18], [2026, 9, 10], "-120.00", "food.groceries"),
+  txn("מסעדה", [2026, 8, 20], [2026, 9, 10], "-89.00", "food.restaurants"),
+  txn("דלק", [2026, 8, 12], [2026, 9, 10], "-250.00", "transport.fuel"),
+  txn("חיוב מקס", [2026, 8, 16], null, "-4300.00", "transfer.card_settlement", false),
+  txn("ביט", [2026, 8, 17], null, "-200.00", "transfer.p2p", false),
+  txn("לא ידוע", [2026, 8, 26], null, "-49.90", null),
+  txn("זיכוי נעליים", [2026, 8, 28], [2026, 9, 10], "200.00", "shopping.clothing"),
+  txn("נעליים", [2026, 8, 9], [2026, 9, 10], "-300.00", "shopping.clothing"),
   txn("סופר יולי", [2026, 7, 30], [2026, 8, 10], "-100.00", "food.groceries"),
-  txn("קפה", [2026, 8, 25], [2026, 9, 10], "-75.00", "food.cafe"),
-  txn("עמלת ערוץ ישיר", [2026, 8, 31], null, "-17.90", "financial.bank_fees"),
+  txn("קפה", [2026, 8, 31], [2026, 9, 10], "-75.00", "food.cafe"),
+  txn("עמלת ערוץ ישיר", [2026, 9, 6], null, "-17.90", "financial.bank_fees"),
 ];
 
 describe("breakdownByCategory — בסיס booked", () => {
@@ -197,7 +197,7 @@ describe("מקרי קצה", () => {
 
   it("תנועה שסווגה לקטגוריית־על ולא לתת־קטגוריה לא נספרת פעמיים", () => {
     const b = breakdownByCategory(
-      [txn("סתם אוכל", [2026, 8, 4], null, "-50.00", "food")],
+      [txn("סתם אוכל", [2026, 8, 10], null, "-50.00", "food")],
       AUG
     );
     const food = b.categories.find((c) => c.slug === "food");
@@ -208,7 +208,7 @@ describe("מקרי קצה", () => {
 
   it("‏slug שאינו בעץ נחשב הוצאה ולא מפיל את החישוב", () => {
     const b = breakdownByCategory(
-      [txn("קטגוריה של המשתמש", [2026, 8, 4], null, "-50.00", "myown.thing")],
+      [txn("קטגוריה של המשתמש", [2026, 8, 10], null, "-50.00", "myown.thing")],
       AUG
     );
     assert.equal(b.expense, 5000);
@@ -232,9 +232,9 @@ describe("מקרי קצה", () => {
 describe("compareBreakdowns", () => {
   const JUL = monthPeriod(2026, 7);
   const july: AnalyticsTxn[] = [
-    txn("סופר יולי", [2026, 7, 5], null, "-500.00", "food.groceries"),
+    txn("סופר יולי", [2026, 7, 11], null, "-500.00", "food.groceries"),
     txn("חדר כושר", [2026, 7, 8], null, "-199.00", "leisure.sports"),
-    txn("משכורת", [2026, 7, 1], null, "12000.00", "income.salary"),
+    txn("משכורת", [2026, 7, 7], null, "12000.00", "income.salary"),
   ];
 
   const cmp = compareBreakdowns(

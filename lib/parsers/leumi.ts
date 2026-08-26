@@ -166,6 +166,12 @@ const RULES: { test: RegExp; kind: TxnKind; spending: boolean; onlyOn?: TxnDirec
   { test: /^החזר/, kind: "REFUND", spending: false },
   { test: /הוראת\s*קבע/, kind: "STANDING_ORDER", spending: true },
   { test: /ביט|העברה\s*דיגיטל|תשלום\s*מיידי|הע\s*\.?\s*אינטרנט|העברה/, kind: "TRANSFER_IN", spending: false, onlyOn: "CREDIT" },
+  // << מ-26.08, החלטת משתמש: תשלום שיצא דרך ביט הוא כסף שיצא בפועל ולא
+  //    חוזר — לא כמו העברה כללית (בין חשבונות של אותו אדם, או תשלום
+  //    מיידי אחר) שנשארת מוחרגת. חייב לבוא *לפני* הכלל הכללי למטה, כי
+  //    שניהם היו תואמים לאותה שורה ורק הראשון שמתאים מכריע. הכלל
+  //    המקביל לקטגוריה עצמה (transfers_out.bit) ב-lib/classify/rules.ts.
+  { test: /העברה\s*ב\s*BIT/i, kind: "TRANSFER_OUT", spending: true, onlyOn: "DEBIT" },
   { test: /ביט|העברה\s*דיגיטל|תשלום\s*מיידי|הע\s*\.?\s*אינטרנט|העברה/, kind: "TRANSFER_OUT", spending: false, onlyOn: "DEBIT" },
   { test: /מילואי|מענק/, kind: "INCOME", spending: false },
 ];
@@ -306,6 +312,8 @@ export function parseLeumiLines(lines: string[]): LeumiParseResult {
       note: null,
       balanceAfter: fromMinor(row.amounts[balanceIdx].minor),
       countsAsSpending,
+      // << דף חשבון בנק: החיוב *הוא* התנועה, אין תאריך חיוב עתידי נפרד.
+      individualChargeDate: false,
       dedupHash,
       occurrence: 0,
     });

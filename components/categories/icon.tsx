@@ -124,6 +124,27 @@ const ICONS: Record<string, ReactElement> = {
       <polyline points="7,11 4,14 7,17" />
     </>
   ),
+  send: (
+    <>
+      <polyline points="2,10 17,3 10,18 8,11 2,10" />
+      <line x1="8" y1="11" x2="17" y2="3" />
+    </>
+  ),
+  receipt: (
+    <>
+      <path d="M5 2h10v15l-2-1.5L11 17l-2-1.5L7 17l-2-1.5V2z" />
+      <line x1="7" y1="6" x2="13" y2="6" />
+      <line x1="7" y1="9" x2="13" y2="9" />
+      <line x1="7" y1="12" x2="11" y2="12" />
+    </>
+  ),
+  suitcase: (
+    <>
+      <rect x="3" y="7" width="14" height="10" rx="1.5" />
+      <path d="M7.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 12.5 5v2" />
+      <line x1="10" y1="7" x2="10" y2="17" />
+    </>
+  ),
 };
 
 export function CategoryIcon({

@@ -26,6 +26,19 @@
  */
 
 /**
+ * **3. התקופה מתחילה ב-7 בחודש, לא ב-1 (מ-26.08)**
+ *
+ * << החלטה מפורשת של המשתמש: "אוגוסט" בפלוקס הוא [7 באוגוסט, 7
+ *    בספטמבר) ולא [1 באוגוסט, 1 בספטמבר). לא שרירותי ולא ניחוש —
+ *    זה פשוט התאריך שממנו הוא בפועל סופר את החודש שלו. `PERIOD_START_DAY`
+ *    הוא המקום היחיד שהיום הזה כתוב בו; `monthPeriod` בונה ממנו את
+ *    הגבולות, ו-`monthOf` מגלגל תאריך עם יום < 7 לתקופה של החודש
+ *    *הקודם*. שינוי כזה משנה משמעות של כל סנפשוט שמור — ראו העלאת
+ *    ‏`SNAPSHOT_VERSION` ב-lib/analytics/snapshot.ts.
+ */
+const PERIOD_START_DAY = 7;
+
+/**
  * לפי איזה תאריך משייכים תנועה לחודש.
  *
  *   booked  — תאריך העסקה. "מתי הוצאתי".
@@ -82,8 +95,11 @@ export function isoDay(d: Date): string {
  * ‏Date של JS עושה בדיוק את הדבר הנכון.
  */
 export function monthPeriod(year: number, month1to12: number): Period {
-  const from = new Date(Date.UTC(year, month1to12 - 1, 1));
-  const to = new Date(Date.UTC(year, month1to12, 1));
+  const from = new Date(Date.UTC(year, month1to12 - 1, PERIOD_START_DAY));
+  const to = new Date(Date.UTC(year, month1to12, PERIOD_START_DAY));
+  // << from.getUTCMonth() תמיד שווה ל-month1to12-1 כאן: יום 7 לעולם
+  //    לא גולש לחודש הבא (בניגוד ליום 31, למשל), אז אין הפתעה כאן —
+  //    בשונה מ-`to`, שבכוונה כן גולש (דצמבר → ינואר בשנה הבאה).
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
   return {
@@ -94,9 +110,24 @@ export function monthPeriod(year: number, month1to12: number): Period {
   };
 }
 
-/** החודש שבו נופל התאריך. */
+/**
+ * התקופה שבה נופל התאריך.
+ *
+ * << לא "החודש הקלנדרי שלו" — `PERIOD_START_DAY`. יום 3 בספטמבר נופל
+ *    בתקופה "אוגוסט" (שמסתיימת ב-7 בספטמבר), לא ב"ספטמבר".
+ */
 export function monthOf(d: Date): Period {
-  return monthPeriod(d.getUTCFullYear(), d.getUTCMonth() + 1);
+  const day = d.getUTCDate();
+  let y = d.getUTCFullYear();
+  let m = d.getUTCMonth() + 1; // 1-12
+  if (day < PERIOD_START_DAY) {
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return monthPeriod(y, m);
 }
 
 export function previousMonth(p: Period): Period {

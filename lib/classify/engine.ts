@@ -139,11 +139,18 @@ function matches(rule: CompiledRule, merchant: string): boolean {
  */
 const KIND_SLUG: Partial<Record<TxnKind, string>> = {
   CARD_SETTLEMENT: "transfer.card_settlement",
-  FEE: "financial.bank_fees",
+  // << מ-26.08: עבר מ-financial.bank_fees ל-fees, יחד עם כלל ה-"עמל"
+  //    ב-rules.ts — ראו ההערה שם.
+  FEE: "fees",
   REFUND: "income.refunds",
   TRANSFER_IN: "transfer.p2p",
   TRANSFER_OUT: "transfer.p2p",
   INCOME: "income.other",
+  // << מ-26.08: הוראת קבע בלי כלל בית-עסק ספציפי יותר (כמו שכר דירה
+  //    עם שם המשכיר) נופלת ל"עמלות" — אין לה מקבילה ב-11 הקטגוריות
+  //    של MAX, וזה בדיוק הרעיון של הקטגוריה הזו. כלל ספציפי יותר
+  //    ב-rules.ts תמיד גובר, כי RULES (2-3) נבדק לפני TXN_KIND (4).
+  STANDING_ORDER: "fees",
 };
 
 export function classify(input: Classifiable, rules: CompiledRule[]): Decision | null {

@@ -1,7 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { summarizeBalance, type BalancePoint } from "../lib/accounts/engine";
+import {
+  summarizeBalance,
+  sortUpcomingCharges,
+  type BalancePoint,
+  type UpcomingCharge,
+} from "../lib/accounts/engine";
 
 const DAY_MS = 86_400_000;
 const day = (n: number) => new Date(2026, 0, n);
@@ -53,5 +58,84 @@ describe("summarizeBalance", () => {
     assert.equal(summary.sparkline.length, 20);
     assert.equal(summary.sparkline[0], points[10]);
     assert.equal(summary.sparkline[19], points[29]);
+  });
+});
+
+describe("sortUpcomingCharges", () => {
+  const charge = (
+    id: string,
+    chargedAt: Date | null,
+    paid: boolean,
+    bookedAt: Date = day(1)
+  ): UpcomingCharge => ({
+    id,
+    merchant: `בית עסק ${id}`,
+    amount: -1000,
+    bookedAt,
+    chargedAt,
+    paid,
+  });
+
+  it("לא-שולם מגיע לפני שולם, גם אם שולם נרשם קודם", () => {
+    const result = sortUpcomingCharges([
+      charge("paid", day(5), true),
+      charge("unpaid", day(20), false),
+    ]);
+    assert.deepEqual(
+      result.map((c) => c.id),
+      ["unpaid", "paid"]
+    );
+  });
+
+  it("בתוך לא-שולם: הקרוב (chargedAt) קודם, לא הרחוק", () => {
+    const result = sortUpcomingCharges([
+      charge("far", day(25), false),
+      charge("near", day(10), false),
+      charge("mid", day(15), false),
+    ]);
+    assert.deepEqual(
+      result.map((c) => c.id),
+      ["near", "mid", "far"]
+    );
+  });
+
+  it("לא-שולם בלי chargedAt מגיע אחרי כל הלא-שולם עם תאריך ידוע", () => {
+    const result = sortUpcomingCharges([
+      charge("known", day(30), false),
+      charge("unknown", null, false, day(5)),
+    ]);
+    assert.deepEqual(
+      result.map((c) => c.id),
+      ["known", "unknown"]
+    );
+  });
+
+  it("כמה בלי chargedAt: הממוינים לפי bookedAt, החדש קודם", () => {
+    const result = sortUpcomingCharges([
+      charge("old", null, false, day(1)),
+      charge("new", null, false, day(10)),
+    ]);
+    assert.deepEqual(
+      result.map((c) => c.id),
+      ["new", "old"]
+    );
+  });
+
+  it("בתוך שולם: האחרון (chargedAt) קודם — היסטוריה הפוכה", () => {
+    const result = sortUpcomingCharges([
+      charge("earlier", day(5), true),
+      charge("later", day(20), true),
+    ]);
+    assert.deepEqual(
+      result.map((c) => c.id),
+      ["later", "earlier"]
+    );
+  });
+
+  it("לא נוגע במערך המקורי (immutable)", () => {
+    const input = [charge("a", day(10), false), charge("b", day(5), false)];
+    const copy = [...input];
+    sortUpcomingCharges(input);
+    assert.deepEqual(input, copy);
   });
 });

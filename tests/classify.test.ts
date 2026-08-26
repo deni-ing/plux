@@ -27,7 +27,8 @@ describe("classify — מקור ההכרעה (4.10)", () => {
   it("אין כלל תואם, אבל יש kind מוכר → source TXN_KIND ולא RULE", () => {
     const d = classify({ merchant: "עמלת ניהול חשבון", kind: "FEE" }, [] as CompiledRule[]);
     assert.equal(d?.source, "TXN_KIND");
-    assert.equal(d?.slug, "financial.bank_fees");
+    // << מ-26.08: עבר מ-financial.bank_fees ל-fees — ראו ההערה ב-KIND_SLUG.
+    assert.equal(d?.slug, "fees");
   });
 
   it("כלל וגם kind באותה תנועה → הכלל גובר, עדיין RULE ולא TXN_KIND", () => {

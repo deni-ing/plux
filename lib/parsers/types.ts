@@ -36,6 +36,8 @@ export type ParsedTxn = {
   /** << היתרה המצטברת אחרי התנועה. קיימת רק בדף בנק, ומשמשת לאימות. */
   balanceAfter: string | null;
   countsAsSpending: boolean;
+  /** << ראו ההערה על השדה המקביל ב-prisma/schema.prisma. */
+  individualChargeDate: boolean;
   dedupHash: string;
   occurrence: number;
 };

@@ -6,6 +6,11 @@ import { monthPeriod, monthsBack, utcDate } from "../lib/analytics/period";
 import { breakdownByCategory, type AnalyticsTxn } from "../lib/analytics/spend";
 import { feeReport, isFee, recurringFees } from "../lib/analytics/fees";
 
+// << מ-26.08: כל התאריכים בקובץ הזה על יום >= 7 בחודש, בכוונה — התקופה
+//    מתחילה עכשיו ב-7, לא ב-1 (ראו lib/analytics/period.ts). תאריך על
+//    יום < 7 נופל לתקופה של החודש הקודם, וזה היה שובר כאן כל בדיקה
+//    שמניחה "יום 1-6 שייך לחודש הזה".
+
 function fee(
   merchant: string,
   booked: [number, number, number],
@@ -45,37 +50,37 @@ function purchase(
 
 describe("isFee", () => {
   it("מזהה לפי סוג התנועה גם בלי קטגוריה", () => {
-    assert.equal(isFee(fee("עמל.ערוץ יש 11", [2026, 8, 1], "-17.90", null)), true);
+    assert.equal(isFee(fee("עמל.ערוץ יש 11", [2026, 8, 10], "-17.90", null)), true);
   });
 
   it("מזהה לפי קטגוריה גם כשהסוג אינו FEE", () => {
     assert.equal(
-      isFee(fee("דמי כרטיס", [2026, 8, 1], "-11.90", "financial.card_fees", "OTHER")),
+      isFee(fee("דמי כרטיס", [2026, 8, 10], "-11.90", "financial.card_fees", "OTHER")),
       true
     );
   });
 
   it("אינו מזהה מסים כעמלה", () => {
     assert.equal(
-      isFee(fee("אגרת רישוי", [2026, 8, 1], "-1500.00", "financial.taxes", "PURCHASE")),
+      isFee(fee("אגרת רישוי", [2026, 8, 10], "-1500.00", "financial.taxes", "PURCHASE")),
       false
     );
   });
 
   it("אינו מזהה קנייה רגילה", () => {
-    assert.equal(isFee(purchase("סופר", [2026, 8, 1], "-350.00", "food.groceries")), false);
+    assert.equal(isFee(purchase("סופר", [2026, 8, 10], "-350.00", "food.groceries")), false);
   });
 });
 
 describe("feeReport", () => {
-  const AUG = monthPeriod(2026, 8);
+  const AUG = monthPeriod(2026, 8); // [2026-08-07, 2026-09-07)
   const txns: AnalyticsTxn[] = [
-    fee("עמל.ערוץ יש 11", [2026, 8, 5], "-17.90"),
-    fee("דמי כרטיס", [2026, 8, 10], "-11.90", "financial.card_fees", "OTHER"),
-    fee("ריבית חובה", [2026, 8, 28], "-4.20", "financial.interest", "OTHER"),
-    fee("עמל.ערוץ יש 11", [2026, 7, 5], "-17.90"), // מחוץ לתקופה
-    purchase("סופר", [2026, 8, 3], "-350.00", "food.groceries"),
-    purchase("דלק", [2026, 8, 6], "-250.00", "transport.fuel"),
+    fee("עמל.ערוץ יש 11", [2026, 8, 10], "-17.90"),
+    fee("דמי כרטיס", [2026, 8, 15], "-11.90", "financial.card_fees", "OTHER"),
+    fee("ריבית חובה", [2026, 9, 2], "-4.20", "financial.interest", "OTHER"), // עדיין בתוך אוגוסט: התקופה נגמרת ב-7.9
+    fee("עמל.ערוץ יש 11", [2026, 7, 10], "-17.90"), // מחוץ לתקופה
+    purchase("סופר", [2026, 8, 9], "-350.00", "food.groceries"),
+    purchase("דלק", [2026, 8, 12], "-250.00", "transport.fuel"),
   ];
 
   const b = breakdownByCategory(txns, AUG);
@@ -123,12 +128,12 @@ describe("recurringFees", () => {
   const MONTHS = monthsBack(utcDate(2026, 8, 22), 5); // אפריל–אוגוסט
 
   const txns: AnalyticsTxn[] = [
-    // עמלה קבועה, כל חמשת החודשים
-    fee("עמל.ערוץ יש 11", [2026, 4, 5], "-17.90"),
-    fee("עמל.ערוץ יש 11", [2026, 5, 5], "-17.90"),
-    fee("עמל.ערוץ יש 11", [2026, 6, 5], "-17.90"),
-    fee("עמל.ערוץ יש 11", [2026, 7, 5], "-17.90"),
-    fee("עמל.ערוץ יש 11", [2026, 8, 5], "-17.90"),
+    // עמלה קבועה, כל חמשת החודשים — יום 10, לא 5: יום 5 נופל בתקופת החודש הקודם.
+    fee("עמל.ערוץ יש 11", [2026, 4, 10], "-17.90"),
+    fee("עמל.ערוץ יש 11", [2026, 5, 10], "-17.90"),
+    fee("עמל.ערוץ יש 11", [2026, 6, 10], "-17.90"),
+    fee("עמל.ערוץ יש 11", [2026, 7, 10], "-17.90"),
+    fee("עמל.ערוץ יש 11", [2026, 8, 10], "-17.90"),
     // עמלה משתנה, שלושה חודשים
     fee("ריבית חובה", [2026, 6, 28], "-4.20", "financial.interest", "OTHER"),
     fee("ריבית חובה", [2026, 7, 28], "-9.80", "financial.interest", "OTHER"),
@@ -136,9 +141,9 @@ describe("recurringFees", () => {
     // חד־פעמית
     fee("עמלת המרה", [2026, 6, 15], "-32.00", "financial.card_fees", "OTHER"),
     // מחוץ לחלון
-    fee("עמל.ערוץ יש 11", [2026, 3, 5], "-17.90"),
+    fee("עמל.ערוץ יש 11", [2026, 3, 10], "-17.90"),
     // רעש
-    purchase("סופר", [2026, 8, 3], "-350.00", "food.groceries"),
+    purchase("סופר", [2026, 8, 9], "-350.00", "food.groceries"),
   ];
 
   const r = recurringFees(txns, MONTHS);

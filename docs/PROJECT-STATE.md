@@ -1,6 +1,6 @@
 # Plux — מצב הפרויקט
 
-עדכון אחרון: 25.08.2026 (יום 8)
+עדכון אחרון: 26.08.2026 (יום 9)
 
 מסמך מסירה. נועד לאפשר לשיחה חדשה להמשיך מכאן בלי לגלות מחדש
 מה נבנה, למה, ומה כבר נבדק. **קרא אותו לפני שאתה משנה קוד.**
@@ -50,6 +50,24 @@ Heebo) שהחליף `black/white` גולמי בדשבורד/חיסכון/תקצ�
 בית, ושם הבוט בממשק שונה מ"שיחה" הכללית ל-**Pluxer**. commits
 `d37b5dc`, `f2ec05e`, `e49dcbe`, מתועדים בפירוט בהמשך המסמך.
 
+**עדכון מיום 26.08 — רה-דיזיין קטגוריות MAX ותיקוני יציבות:** קטגוריית
+MAX (שדה "קטגוריה" בקובץ עצמו) הפכה **ליעד סיווג ישיר** במקום ברירת
+מחדל שכללי `rules.ts` פיצלו לפי שם בית עסק — החלטת מוצר מפורשת של
+המשתמש, כדי שהאפליקציה תציג בדיוק את מה שכתוב בקובץ שהוא מייבא. שלוש
+תוצאות: תשלומי ביט נספרים כהוצאה אמיתית (`transfers_out.bit`, לא
+עוד מוחרגים כהעברה), "שונות" ממופה ל-`misc` ממשי במקום `null`, וקטגוריית
+MAX 12-ית שהתגלתה בקובץ נוסף — **טיסות ותיירות** — קיבלה יעד עצמאי
+(`travel`). `SNAPSHOT_VERSION` עלה ל-7. גם: מיון חיובים קרובים לפי
+תאריך חיוב אמיתי במקום תאריך הזנה למסד (`sortUpcomingCharges`,
+`lib/accounts/engine.ts`), תיקון כפילות טקסט בבאנר "חודש חלקי", ושני
+תיקוני ESLint (`react-hooks/immutability` בדונאט הקטגוריות, משתנה לא
+בשימוש ב-`dedupe-check.mts` החדש). **תקלה נפרדת שנפתרה באותו יום, לא
+באג קוד:** `classify-check.mts --resync` נכשל ב-P2003 כי מזהה המשתמש
+של Clerk ששימש לאורך השיחה היה שגוי בשתי אותיות — לא RLS, לא pooler.
+פורט מלא ליומן ב-`docs/plux-explain.md` (סעיפים 9.39–9.42, 16),
+כולל את כל עבודת יום 8 (סעיפים 9.32–9.38, 15) שלא הייתה מתועדת שם עד
+עכשיו. commits `b82f79d`, `578267b`.
+
 ---
 
 ## מה זה
@@ -85,8 +103,8 @@ Prisma 7.9.1 · PostgreSQL ב-Supabase · Clerk לזהות · Vercel לדיפל�
 | מסך העלאה + API | ✅ /import ו-POST /api/imports |
 | אחסון הקובץ הגולמי | ✅ דלי פרטי + מחיקה אחרי 30 יום |
 | סיווג תנועות | ✅ 98.5% מ-392 תנועות אמיתיות |
-| עץ קטגוריות | ✅ 85 קטגוריות, שתי שכבות, slug יציב |
-| מנוע כללים | ✅ 90 כללים מנתונים אמיתיים |
+| עץ קטגוריות | ✅ 96 קטגוריות, שתי שכבות, slug יציב — MAX הוא היעד הישיר מ-26.08 |
+| מנוע כללים | ✅ 23 כללי-מבנה (לאומי בלבד, לא ניחוש-שם) מ-26.08, ירד מ-90 |
 | שכבת AI (סיווג) | ✅ `ClaudeClassifier` מחובר בפועל, נבדק על 74 בתי עסק אמיתיים (4.8) |
 | תיקון ידני → כלל | ✅ עובד, EXACT בעדיפות 10 |
 | CI (GitHub Actions) | ✅ ירוק. ריצה #20 היא האחרונה, על commit `8df1808` |
@@ -122,8 +140,8 @@ lib/db/maintenance.ts      החריג היחיד ל-RLS. עבודות מערכת
 lib/categories/tree.ts     עץ הקטגוריות. 85 slugs, שתי שכבות, שלושה kinds
 lib/categories/ensure.ts   יצירת הקטגוריות למשתמש. 4 שאילתות לכל היותר
 lib/classify/engine.ts     ההחלטה עצמה. טהור — בלי מסד, בלי Next
-lib/classify/rules.ts      90 כללי בתי עסק, כולם מנתונים אמיתיים
-lib/classify/provider-max.ts  11 קטגוריות MAX → slugs. "שונות" → null במכוון
+lib/classify/rules.ts      23 עובדות מבניות של לאומי (עמלה/העברה/מזומן). מ-26.08 לא מפצל MAX
+lib/classify/provider-max.ts  12 קטגוריות MAX → slugs, היעד הישיר (מ-26.08). "שונות"→misc, לא null
 lib/classify/store.ts      השכבה שנוגעת במסד + coverage()
 lib/classify/run.ts        שלוש טרנזקציות קצרות, לא אחת ארוכה
 lib/classify/user.ts       תיקון ידני. USER הוא סוף פסוק
@@ -185,11 +203,12 @@ components/budget/parts.tsx  BudgetRow, NewBudgetForm
 scripts/budget-check.mts   דוח תקציב משורת הפקודה
 
 — בית, יתרה, המלצות, טיקר —
-lib/accounts/engine.ts     פונקציות טהורות: summarizeBalance (יתרה, דלתא, sparkline)
+lib/accounts/engine.ts     פונקציות טהורות: summarizeBalance, sortUpcomingCharges (מ-26.08, לפי תאריך חיוב)
 lib/accounts/store.ts      שכבת המסד. bankBalance — null כשאין חשבון בנק
 lib/recommendations/engine.ts  שלוש תובנות מנוסחות: הוראת קבע, חריגת תקציב, כסף עומד
 lib/recommendations/store.ts   שכבת המסד. קורא ל-recurring/budget/savings הקיימים
 lib/market/index.ts        טיקר שוק. Twelve Data, ETF proxies ל-S&P/Nasdaq
+scripts/dedupe-check.mts   ביקורת כפילויות אמיתיות (dedupHash שונה לתנועה זהה-לכאורה). מ-26.08
 components/home/parts.tsx  BalanceCard/ForecastCard/GoalProgress/PlanCard/PendingBanner
 components/home/ask-box.tsx     תיבת שאלה חופשית ← /chat?q=
 components/home/market-ticker.tsx  כרטיס הטיקר
@@ -346,6 +365,13 @@ when="signed-in">`. גרסת ה-npm (`^7.x`) לא מסגירה את דור ה-AP
 **ואמת אחת שחזרה על עצמה שלוש פעמים ביום אחד:** לפני שמנתחים התנהגות,
 ודא שהקוד על הדיסק הוא הקוד שנכתב. `Get-FileHash` או `Select-String`
 על מילה שקיימת רק בגרסה החדשה — שתי שניות, וחוסכות סבב שלם.
+
+**P2003 על טבלה שהמשתמש "בטוח" קיים בה, יכול להיות זהות שגויה, לא RLS.**
+26.08: שגיאת מפתח זר על `categories_userId_fkey` נראתה כמו כשל RLS או
+כשל pooler — אף אחד מהם לא היה זה. מזהה Clerk ששימש לאורך שיחה שלמה
+היה שגוי בשתי אותיות. לפני שחושדים בשכבות המסד, `scripts\debug-user-row.mts`
+(או שאילתה ישירה עם `pg.Client` על `DIRECT_URL`, עוקפת Prisma ו-RLS)
+מוודא תוך דקה מי בכלל קיים בטבלת `users`.
 
 ---
 

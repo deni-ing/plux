@@ -20,7 +20,8 @@ import { prisma, withUser } from "../lib/db/client";
 import { formatILS, toAgorot } from "../lib/analytics/money";
 import { monthPeriod } from "../lib/analytics/period";
 
-const G = "\x1b[32m", R = "\x1b[31m", Y = "\x1b[33m", B = "\x1b[1m", D = "\x1b[2m", O = "\x1b[0m";
+// << Y (צהוב) לא היה בשימוש בפועל בדוח הזה — רק ירוק/אדום/ניטרלי.
+const G = "\x1b[32m", R = "\x1b[31m", B = "\x1b[1m", D = "\x1b[2m", O = "\x1b[0m";
 
 const args = process.argv.slice(2);
 const val = (flag: string) => {

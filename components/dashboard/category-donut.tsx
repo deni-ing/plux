@@ -128,14 +128,25 @@ export function CategoryDonut({
     });
   }
 
-  let offset = 0;
-  const arcs = segments.map((seg) => {
-    const raw = (seg.share / 100) * CIRC;
-    const visible = Math.max(0, raw - GAP);
-    const dashoffset = -offset;
-    offset += raw;
-    return { ...seg, dasharray: `${visible} ${CIRC - visible}`, dashoffset };
-  });
+  // << בלי `let offset` שמצטבר תוך כדי map: ה-linter (react-hooks/immutability,
+  //    שמכין את הקוד ל-React Compiler) אוסר על שינוי משתנה שהוצהר בגוף
+  //    הרכיב אחרי שהרינדור "הושלם" — ה-compiler עלול לשמור (memoize) את
+  //    תוצאת ה-render ולא להריץ מחדש את ההצטברות. הפתרון: reduce טהור,
+  //    שמעביר את ה-offset דרך האקומולטור עצמו במקום דרך משתנה חיצוני.
+  const arcs = segments.reduce<{
+    offset: number;
+    out: Array<Segment & { dasharray: string; dashoffset: number }>;
+  }>(
+    (acc, seg) => {
+      const raw = (seg.share / 100) * CIRC;
+      const visible = Math.max(0, raw - GAP);
+      return {
+        offset: acc.offset + raw,
+        out: [...acc.out, { ...seg, dasharray: `${visible} ${CIRC - visible}`, dashoffset: -acc.offset }],
+      };
+    },
+    { offset: 0, out: [] }
+  ).out;
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">

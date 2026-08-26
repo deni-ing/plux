@@ -110,7 +110,10 @@ export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
           {p.daysInPeriod} ימים.
           {c
             ? c.aligned
-              ? ` ההשוואה היא מול ${c.currentDays} הימים הראשונים של ${c.previousLabel}.`
+              ? // << previousLabel כבר כולל "· N ימים ראשונים" (ראו firstDays
+                //    ב-lib/analytics/period.ts) — הוספת currentDays כאן שוב
+                //    הייתה מכפילה את אותו מספר פעמיים באותו משפט.
+                ` ההשוואה היא מול ${c.previousLabel}.`
               : ` ההשוואה אינה מיושרת: ${c.currentDays} ימים מול ${c.previousDays}.`
             : null}
         </Notice>

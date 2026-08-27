@@ -11,6 +11,8 @@
 [![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF)](https://clerk.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
+![Plux demo](./docs/demo.gif)
+
 *(עברית: [README.he.md](./README.he.md))*
 
 ---

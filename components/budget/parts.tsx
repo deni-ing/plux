@@ -12,7 +12,7 @@
  * הכול Server Components וטפסים. אין `use client` בקובץ הזה.
  */
 
-import { CATEGORY_TREE } from "../../lib/categories/tree";
+import { manualCategories } from "../../lib/categories/tree";
 import { formatILS } from "../../lib/analytics/money";
 import { categoryColorVar, categoryIcon, topLevelSlug } from "../../lib/categories/palette";
 import { CategoryIcon } from "../categories/icon";
@@ -118,9 +118,9 @@ export function BudgetRow({
 }
 
 /**
- * רק קטגוריות EXPENSE — תקציב לא מוגדר על הכנסה או העברה. אותה
- * שכבתיות כמו CategoryPicker ב-transactions/parts.tsx, בלי optgroup
- * כי יש כאן קבוצה אחת בלבד.
+ * << מ-27.08, החלטת משתמש: אותה הגבלה כמו CategoryPicker
+ *    (components/transactions/parts.tsx) — רק 12 היעדים ש-MAX
+ *    ממופה אליהם (manualCategories), לא כל עץ הקטגוריות.
  */
 export function NewBudgetForm() {
   return (
@@ -140,19 +140,11 @@ export function NewBudgetForm() {
           <option value="" disabled className="text-[#12181a]">
             בחר קטגוריה
           </option>
-          {CATEGORY_TREE.filter((group) => group.kind === "EXPENSE").flatMap((group) =>
-            group.categories.flatMap((cat) => [
-              <option key={cat.slug} value={cat.slug} className="text-[#12181a]">
-                {cat.name}
-              </option>,
-              ...(cat.children ?? []).map((ch) => (
-                <option key={ch.slug} value={ch.slug} className="text-[#12181a]">
-                  {"  "}
-                  {ch.name}
-                </option>
-              )),
-            ])
-          )}
+          {manualCategories().map((cat) => (
+            <option key={cat.slug} value={cat.slug} className="text-[#12181a]">
+              {cat.name}
+            </option>
+          ))}
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs text-muted">

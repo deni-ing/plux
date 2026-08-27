@@ -46,6 +46,7 @@ A few decisions worth mentioning to anyone reading the code:
 - **The AI assistant is tool-calling, not RAG-over-a-blob** — Claude gets a small set of typed tools (`getMonthlyReport`, `findTransactions`, `listAvailableMonths`) and decides which to call; answers are grounded in real query results, and monthly summaries are cached so they're generated once per period, not on every page load.
 - **Demo access via Clerk sign-in tokens**, not a shared demo password — a real, first-class Clerk session, generated server-side per visit.
 - **Uploaded bank/card statements are purged after 30 days** by a scheduled job — the parsed transactions stay, but the raw source file (which can contain a full ID number or account number) doesn't get kept indefinitely just in case a parser bug needs re-running against it later.
+- **A daily keepalive cron pings the database** — Supabase's free tier pauses a project after about a week with no queries, and a portfolio site doesn't get daily traffic on its own.
 
 The full endpoint reference — request/response types read directly from the route handlers, not a separate schema that can drift — lives in [`docs/API.md`](./docs/API.md).
 

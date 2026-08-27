@@ -25,11 +25,15 @@ type State =
   | { status: "hidden" };
 
 export function SummaryCard({ month }: { month: string }) {
+  // << אין setState({status:"loading"}) בגוף ה-effect: קריאה סינכרונית
+  //    לו שם עלולה לגרום ל-render מדורג (react-hooks/set-state-in-effect).
+  //    "loading" הוא כבר ערך ההתחלה של useState — ואיפוס אמיתי בין חודש
+  //    לחודש קורה כי ההורה מעביר `key={month}` (app/dashboard/page.tsx),
+  //    כלומר React ממחזר את הרכיב במקום שהאפקט יצטרך לאפס state ידנית.
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
 
     fetch(`/api/summary?month=${encodeURIComponent(month)}`)
       .then(async (res) => {

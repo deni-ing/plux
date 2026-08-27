@@ -138,7 +138,7 @@ export default async function DashboardPage({
 
       <PeriodHeader facts={facts} />
 
-      <SummaryCard month={period.key} />
+      <SummaryCard key={period.key} month={period.key} />
 
       {source === "computed" ? (
         <Notice tone="info">

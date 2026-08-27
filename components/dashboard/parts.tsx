@@ -87,6 +87,18 @@ function Bar({ pct, color, muted = false }: { pct: number; color?: string; muted
 
 const money = (a: number) => formatILS(a);
 
+/**
+ * "2026-08-07" -> "07-08-2026", לתצוגה בלבד (עיצוב מחרוזת, לא חישוב
+ * תאריך — כמו money() למעלה). לא מקף בין שני תאריכים: "2026-08-07–
+ * 2026-09-07" מתערבב ב-RTL והופך ל-"2026-09-07--2026-08-07" (התאריך
+ * השני קודם, בלי מפריד ברור) — ראו צילום המסך שהמשתמש שלח. "מ-... עד
+ * ..." במילים לא סובל מהבעיה הזו.
+ */
+const dmy = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
+};
+
 // ─────────────────────── כותרת ואזהרות ───────────────────────
 
 export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
@@ -107,7 +119,8 @@ export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
       {p.partial ? (
         <Notice>
           <b>חודש חלקי.</b> הנתונים מגיעים עד {p.lastDataAt} — {p.daysCovered} מתוך{" "}
-          {p.daysInPeriod} ימים. הטווח שעליו {p.label} מבוסס: {p.from}–{p.to}.
+          {p.daysInPeriod} ימים. הטווח שעליו {p.label} מבוסס: מ-{dmy(p.from)} עד{" "}
+          {dmy(p.to)}.
           {/* << p.from/p.to כבר קיימים מוכנים ב-SnapshotFacts (isoDay, ראו
               lib/analytics/snapshot.ts) — בלי חישוב תאריכים כאן, בהתאם
               לכלל של הקובץ הזה ("אין state, אין חישוב"). p.to לא כולל

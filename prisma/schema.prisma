@@ -22,15 +22,16 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  accounts      Account[]
-  transactions  Transaction[]
-  categories    Category[]
-  rules         CategoryRule[]
-  subscriptions Subscription[]
-  budgets       Budget[]
-  goals         SavingsGoal[]
-  imports       ImportJob[]
-  snapshots     AnalyticsSnapshot[]
+  accounts         Account[]
+  transactions     Transaction[]
+  categories       Category[]
+  rules            CategoryRule[]
+  subscriptions    Subscription[]
+  budgets          Budget[]
+  goals            SavingsGoal[]
+  imports          ImportJob[]
+  snapshots        AnalyticsSnapshot[]
+  monthlySummaries MonthlySummary[]
 
   @@map("users")
 }
@@ -402,4 +403,38 @@ model AnalyticsSnapshot {
   @@unique([userId, periodStart, periodEnd])
   @@index([userId, computedAt])
   @@map("analytics_snapshots")
+}
+
+/**
+ * סיכום חודשי בשפה טבעית — משימה 7.5.
+ *
+ * מטמון, לא תלות — אותו עיקרון בדיוק כמו AnalyticsSnapshot למעלה: שורה
+ * אחת ל-(משתמש, תקופה), נוצרת פעם אחת (בקריאת AI) ונקראת מיידית אחר
+ * כך. ה-userId+periodStart+periodEnd הם אותו מפתח, כי הסיכום מבוסס על
+ * אותה תקופה בדיוק שה-snapshot מתאר.
+ *
+ * << אין כאן שדה גרסה כמו SNAPSHOT_VERSION: הטקסט הוא ניסוח חופשי של
+ *    המודל, לא מבנה שקוד קורא שדה-שדה. אם ניסוח הפרומפט משתנה מהותית,
+ *    הדרך לבטל סיכומים ישנים היא למחוק את הטבלה או להוסיף שדה גרסה
+ *    אז — לא מראש בלי צורך.
+ *
+ * << איפוס: recomputeSnapshots (lib/analytics/recompute.ts) מוחק כאן
+ *    כל שורה ששייכת לתקופה שהוא חישב מחדש. סיכום ישן על עובדות ישנות
+ *    גרוע יותר מאשר בלי סיכום בכלל.
+ */
+model MonthlySummary {
+  id     String @id @default(uuid())
+  userId String
+
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  summary String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart, periodEnd])
+  @@map("monthly_summaries")
 }

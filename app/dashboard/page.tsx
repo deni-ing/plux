@@ -49,6 +49,7 @@ import {
   type BudgetOverage,
 } from "../../components/dashboard/parts";
 import { CategoryDonut, TopCategoryTiles } from "../../components/dashboard/category-donut";
+import { SummaryCard } from "../../components/dashboard/summary-card";
 import { Nav } from "../../components/nav";
 
 export const dynamic = "force-dynamic";
@@ -136,6 +137,8 @@ export default async function DashboardPage({
       </nav>
 
       <PeriodHeader facts={facts} />
+
+      <SummaryCard month={period.key} />
 
       {source === "computed" ? (
         <Notice tone="info">

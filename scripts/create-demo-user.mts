@@ -23,7 +23,13 @@
 import "dotenv/config";
 import { clerkClient } from "@clerk/nextjs/server";
 
-const DEMO_EMAIL = "demo@plux.local";
+// << ".local" נדחה על ידי Clerk (form_param_format_invalid — לא TLD
+//    תקין). "example.com" הוא תחום שמור לתיעוד (RFC 2606) עם TLD תקני,
+//    אז הוא עובר את הבדיקה הפורמלית — ובכוונה לא כתובת מייל אמיתית
+//    של אף אחד (לא רוצים למקד קוד שנשמר ב-git בכתובת אישית). אין
+//    בעיה: הכניסה היחידה שעובדת היא sign-in token, לא מייל בכלל.
+//    אפשר לדרוס עם DEMO_EMAIL ב-env אם תרצה תחום אמיתי משלך.
+const DEMO_EMAIL = process.env.DEMO_EMAIL ?? "plux-demo@example.com";
 
 async function main() {
   const client = await clerkClient();

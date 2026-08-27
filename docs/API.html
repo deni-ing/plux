@@ -95,5 +95,21 @@
 <span id="cb6-11"><a aria-hidden="true" href="#cb6-11" tabindex="-1"></a><span class="co">// שגיאה:</span></span>
 <span id="cb6-12"><a aria-hidden="true" href="#cb6-12" tabindex="-1"></a><span class="co">// 500 — CRON_SECRET לא מוגדר בסביבה (תקלת קונפיגורציה, לא קלט)</span></span>
 <span id="cb6-13"><a aria-hidden="true" href="#cb6-13" tabindex="-1"></a><span class="co">// 401 — ה-header לא תואם</span></span></code></pre></div>
+<h2 dir="rtl" id="get-apicronkeepalive" style="direction:rtl;text-align:right"><code>GET /api/cron/keepalive</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">משימה מתוזמנת (Vercel Cron, יומי — ראו <code>vercel.json</code>) ששולחת שאילתת <code>SELECT 1</code> מינימלית למסד. Supabase בתוכנית החינמית משהה (pauses) פרויקט אחרי כשבוע בלי שאילתות — cron יומי מונע מזה לקרות בין ביקורים בפורטפוליו.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לא מחייב session — מחייב header ייעודי, אותו <code>CRON_SECRET</code> כמו <code>purge-statements</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb7-1"><a aria-hidden="true" href="#cb7-1" tabindex="-1"></a><span class="co">// Header נדרש: Authorization: Bearer &lt;CRON_SECRET&gt;</span></span>
+<span id="cb7-2"><a aria-hidden="true" href="#cb7-2" tabindex="-1"></a></span>
+<span id="cb7-3"><a aria-hidden="true" href="#cb7-3" tabindex="-1"></a><span class="co">// תשובה מוצלחת: 200</span></span>
+<span id="cb7-4"><a aria-hidden="true" href="#cb7-4" tabindex="-1"></a><span class="kw">type</span> KeepaliveResponse <span class="op">=</span> {</span>
+<span id="cb7-5"><a aria-hidden="true" href="#cb7-5" tabindex="-1"></a>  ok<span class="op">:</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb7-6"><a aria-hidden="true" href="#cb7-6" tabindex="-1"></a>  tookMs<span class="op">:</span> <span class="dt">number</span><span class="op">;</span></span>
+<span id="cb7-7"><a aria-hidden="true" href="#cb7-7" tabindex="-1"></a>  at<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> <span class="co">// ISO datetime</span></span>
+<span id="cb7-8"><a aria-hidden="true" href="#cb7-8" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb7-9"><a aria-hidden="true" href="#cb7-9" tabindex="-1"></a></span>
+<span id="cb7-10"><a aria-hidden="true" href="#cb7-10" tabindex="-1"></a><span class="co">// שגיאה:</span></span>
+<span id="cb7-11"><a aria-hidden="true" href="#cb7-11" tabindex="-1"></a><span class="co">// 500 — CRON_SECRET לא מוגדר בסביבה</span></span>
+<span id="cb7-12"><a aria-hidden="true" href="#cb7-12" tabindex="-1"></a><span class="co">// 401 — ה-header לא תואם</span></span>
+<span id="cb7-13"><a aria-hidden="true" href="#cb7-13" tabindex="-1"></a><span class="co">// 502 — השאילתה עצמה נכשלה (המסד לא זמין)</span></span></code></pre></div>
 
 </body></html>

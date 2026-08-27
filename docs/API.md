@@ -155,4 +155,30 @@ type PurgeResponse = {
 // 401 — ה-header לא תואם
 ```
 
+## `GET /api/cron/keepalive`
+
+משימה מתוזמנת (Vercel Cron, יומי — ראו `vercel.json`) ששולחת שאילתת
+`SELECT 1` מינימלית למסד. Supabase בתוכנית החינמית משהה (pauses)
+פרויקט אחרי כשבוע בלי שאילתות — cron יומי מונע מזה לקרות בין ביקורים
+בפורטפוליו.
+
+לא מחייב session — מחייב header ייעודי, אותו `CRON_SECRET` כמו
+`purge-statements`:
+
+```ts
+// Header נדרש: Authorization: Bearer <CRON_SECRET>
+
+// תשובה מוצלחת: 200
+type KeepaliveResponse = {
+  ok: true;
+  tookMs: number;
+  at: string; // ISO datetime
+};
+
+// שגיאה:
+// 500 — CRON_SECRET לא מוגדר בסביבה
+// 401 — ה-header לא תואם
+// 502 — השאילתה עצמה נכשלה (המסד לא זמין)
+```
+
 </div>

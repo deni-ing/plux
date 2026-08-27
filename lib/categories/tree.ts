@@ -21,6 +21,8 @@
  *    "החלטנו שזה שייך לכאן" ל"לא הצלחנו להחליט".
  */
 
+import { MAX_CATEGORY_MAP } from "../classify/provider-max";
+
 export type CategoryKind = "EXPENSE" | "INCOME" | "TRANSFER";
 
 export type CategoryDef = {
@@ -344,4 +346,34 @@ export function nameOf(slug: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * << מ-27.08, החלטת משתמש: בורר הסיווג הידני (CategoryPicker,
+ *    components/transactions/parts.tsx) לא מציע את העץ המלא — רק את
+ *    12 היעדים שקטגוריות MAX ממופות אליהם (provider-max.ts). העץ
+ *    המלא ממשיך להתקיים ולשמש כרגיל (seed, אנליטיקה, budget) — זו
+ *    הגבלה נקודתית על אפשרויות הסיווג הידני בלבד, לא על העץ עצמו.
+ *
+ *    נגזר מ-MAX_CATEGORY_MAP ולא רשימה כפולה בקוד: אם יתגלה ערך MAX
+ *    13-י (כמו שקרה עם "טיסות ותיירות" ב-26.08), הרשימה כאן מתעדכנת
+ *    ממילא ברגע שמוסיפים אותו למפה — בלי לזכור לגעת בשני מקומות.
+ */
+export const MANUAL_CATEGORY_SLUGS: string[] = Array.from(
+  new Set(Object.values(MAX_CATEGORY_MAP).filter((s): s is string => s !== null))
+);
+
+/** {slug, name} לפי סדר העץ, מסונן ל-MANUAL_CATEGORY_SLUGS. */
+export function manualCategories(): { slug: string; name: string }[] {
+  const allowed = new Set(MANUAL_CATEGORY_SLUGS);
+  const out: { slug: string; name: string }[] = [];
+  for (const group of CATEGORY_TREE) {
+    for (const cat of group.categories) {
+      if (allowed.has(cat.slug)) out.push({ slug: cat.slug, name: cat.name });
+      for (const child of cat.children ?? []) {
+        if (allowed.has(child.slug)) out.push({ slug: child.slug, name: child.name });
+      }
+    }
+  }
+  return out;
 }

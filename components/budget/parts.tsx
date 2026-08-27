@@ -133,16 +133,20 @@ export function NewBudgetForm() {
           defaultValue=""
           className="w-40 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm text-ink"
         >
-          <option value="" disabled>
+          {/* << text-[#12181a] מפורש על כל option — אותה תקלה ואותו תיקון
+              כמו ב-CategoryPicker (components/transactions/parts.tsx):
+              בלי זה הטקסט יורש --ink ונראה כמעט בלתי-קריא בתפריט הנפתח
+              הילידי של הדפדפן, שנפתח על רקע בהיר בלי קשר לערכת הנושא. */}
+          <option value="" disabled className="text-[#12181a]">
             בחר קטגוריה
           </option>
           {CATEGORY_TREE.filter((group) => group.kind === "EXPENSE").flatMap((group) =>
             group.categories.flatMap((cat) => [
-              <option key={cat.slug} value={cat.slug}>
+              <option key={cat.slug} value={cat.slug} className="text-[#12181a]">
                 {cat.name}
               </option>,
               ...(cat.children ?? []).map((ch) => (
-                <option key={ch.slug} value={ch.slug}>
+                <option key={ch.slug} value={ch.slug} className="text-[#12181a]">
                   {"  "}
                   {ch.name}
                 </option>

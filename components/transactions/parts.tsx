@@ -17,7 +17,7 @@
  * הכול Server Components וטפסים. אין `use client` בקובץ הזה.
  */
 
-import { CATEGORY_TREE } from "../../lib/categories/tree";
+import { manualCategories } from "../../lib/categories/tree";
 import { formatILS } from "../../lib/analytics/money";
 import { setCategoryAction } from "../../app/transactions/actions";
 
@@ -40,37 +40,25 @@ export function CategoryPicker({
   return (
     <form action={setCategoryAction} className="mt-2 flex flex-wrap items-center gap-2">
       <input type="hidden" name="merchant" value={merchant} />
+      {/* << מ-27.08, החלטת משתמש: לא כל העץ — רק 12 היעדים שקטגוריות
+          MAX ממופות אליהם (manualCategories, lib/categories/tree.ts).
+          כולן מסוג EXPENSE אחת, אז בלי optgroup — קבוצה אחת לא צריכה
+          כותרת. גם text-[#12181a] מפורש על כל option: לפני זה הטקסט
+          ירש את --ink (בהיר במצב כהה), ובתפריט הנפתח הילידי של
+          הדפדפן — שנפתח על רקע בהיר כמעט תמיד, בלי קשר לערכת הנושא
+          של האפליקציה — זה נראה כמו טקסט אפור-כמעט-לבן על רקע לבן. */}
       <select
         name="slug"
         defaultValue={current ?? ""}
         className="rounded-lg border border-black/15 bg-transparent px-2 py-1 text-xs dark:border-white/20"
       >
-        <option value="" disabled>
+        <option value="" disabled className="text-[#12181a]">
           בחר קטגוריה
         </option>
-        {CATEGORY_TREE.map((group) => (
-          <optgroup
-            key={group.kind}
-            label={
-              group.kind === "EXPENSE"
-                ? "הוצאות"
-                : group.kind === "INCOME"
-                  ? "הכנסות"
-                  : "העברות — לא נספרות כהוצאה"
-            }
-          >
-            {group.categories.flatMap((cat) => [
-              <option key={cat.slug} value={cat.slug}>
-                {cat.name}
-              </option>,
-              ...(cat.children ?? []).map((ch) => (
-                <option key={ch.slug} value={ch.slug}>
-                  {"  "}
-                  {ch.name}
-                </option>
-              )),
-            ])}
-          </optgroup>
+        {manualCategories().map((cat) => (
+          <option key={cat.slug} value={cat.slug} className="text-[#12181a]">
+            {cat.name}
+          </option>
         ))}
       </select>
 

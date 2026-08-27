@@ -21,9 +21,20 @@
  *
  * << מ-27.08, המשך: "מתנקה לבד כשסוגרים טאב" (ההנחה המקורית על
  *    sessionStorage) התבררה כלא אמינה מספיק — שחזור טאבים/session של
- *    הדפדפן יכול לשמר sessionStorage גם אחרי "סגירה". לכן בסוף הקובץ
- *    יש גם ניקוי מפורש ב-`pagehide`, לא רק הסתמכות על מתי הדפדפן מוחק
- *    את האחסון מעצמו. ראו ההערה שם.
+ *    הדפדפן יכול לשמר sessionStorage גם אחרי "סגירה". ניסיון ראשון:
+ *    ניקוי מפורש ב-`pagehide` — נזרק בגלל שהוא לא מבחין בין "המשתמש
+ *    באמת עוזב" ל"המשתמש מרענן (F5)", אז רענון היה גם מוחק, וזה לא
+ *    מה שהמשתמש רצה.
+ *
+ * << מ-27.08, הפתרון הסופי: ההבחנה בין רענון לפתיחה טרייה נעשית
+ *    ב-*טעינה*, לא ב-*עזיבה* — כי רק שם יש דרך אמינה לדעת מה קרה.
+ *    ה-Navigation Timing API (`performance.getEntriesByType("navigation")`)
+ *    אומר לכל טעינת מסמך איך היא קרתה: `"reload"` (F5/כפתור רענון),
+ *    לעומת `"navigate"`/`"back_forward"` (הקלדת כתובת, סימניה, טאב
+ *    ששוחזר, כניסה מבחוץ). ניווט צד-לקוח בתוך האתר לא יוצר טעינת
+ *    מסמך חדשה בכלל — אז זה לא נוגע בו, וה-state שכבר בזיכרון פשוט
+ *    ממשיך כרגיל. ראו hydrate() למטה: `"reload"` משחזר מ-sessionStorage
+ *    כרגיל; כל דבר אחר מנקה — זו בדיוק "פתיחה מחדש של האפליקציה".
  */
 
 export type Msg = { role: "user" | "assistant"; content: string };
@@ -57,10 +68,37 @@ function persist() {
   }
 }
 
-/** קריאה חד-פעמית מ-sessionStorage, בקריאה הראשונה בלבד ל-getSnapshot. */
+/**
+ * האם טעינת המסמך הנוכחית היא רענון (F5/כפתור רענון).
+ *
+ * << ברירת המחדל היא true (="זה רענון, תשמר את השיחה") כשה-API לא
+ *    זמין מסיבה כלשהי — עדיף לשמר שיחה במקרה גבולי מאשר למחוק בטעות
+ *    נתונים של המשתמש בגלל דפדפן ישן או iframe חסום.
+ */
+function isReloadNavigation(): boolean {
+  if (typeof performance === "undefined" || !performance.getEntriesByType) return true;
+  const [nav] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+  return nav ? nav.type === "reload" : true;
+}
+
+/** קריאה חד-פעמית, בקריאה הראשונה בלבד ל-getSnapshot אחרי טעינת המסמך. */
 function hydrate() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
+
+  if (!isReloadNavigation()) {
+    // << לא רענון — פתיחה טרייה של האפליקציה (טאב חדש, כתובת שהוקלדה,
+    //    טאב ששוחזר, כניסה מבחוץ). לפי בקשת המשתמש: זו "סגירה ופתיחה"
+    //    ומתחילים שיחה נקייה. מוחקים גם את מה ששרד ב-sessionStorage,
+    //    אחרת הוא "יתפוס" בפעם הבאה שכן תהיה רענון.
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // << sessionStorage חסום — לא קורס.
+    }
+    return;
+  }
+
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return;
@@ -165,31 +203,4 @@ export function clearChat(): void {
     // << כנ"ל.
   }
   notify();
-}
-
-/**
- * << מ-27.08, החלטת משתמש: "בכל פעם שסוגרים את האפליקציה, שזה ילחץ על
- *    נקה שיחה". המשתמש בדק וגילה ש-sessionStorage לבדו לא הספיק —
- *    ב"יציאה וכניסה" מסוימת השיחה נשארה, כנראה שחזור טאבים של הדפדפן
- *    (Chrome/Firefox משחזרים sessionStorage כשפותחים מחדש טאב שנסגר,
- *    או בשחזור session אחרי קריסה/סגירה — לא רק "מתנקה כשסוגרים").
- *    אז במקום לסמוך על מתי sessionStorage *נמחק* מעצמו, מנקים באופן
- *    מפורש ברגע שהדף עוזב.
- *
- *    `pagehide` ולא `beforeunload`: לא חוסם bfcache, ואמין יותר
- *    במובייל (iOS Safari לא תמיד יורה beforeunload). לא יורה בניווט
- *    צד-לקוח בתוך האתר (/ → /chat) — שם המסמך לא נעזב באמת, רק
- *    ב-navigate אמיתי: סגירת טאב/דפדפן, מעבר לכתובת אחרת, או F5.
- *    כן, גם F5 עכשיו מנקה — זו הרחבה מכוונת של "סוגרים", לא רק
- *    "סוגרים טאב ספציפית".
- *
- *    רשום פעם אחת בטעינת המודול (לא ב-effect של ChatScreen): המודול
- *    הזה כבר סינגלטון ברמת דף שלם, לא רכיב, אז זה נטען פעם אחת לכל
- *    חיי הטאב ונשאר רשום גם אם המשתמש עבר למסך אחר לגמרי (בית,
- *    דשבורד) לפני שסגר בפועל.
- */
-if (typeof window !== "undefined") {
-  window.addEventListener("pagehide", () => {
-    clearChat();
-  });
 }

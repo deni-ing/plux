@@ -95,6 +95,23 @@ export const SYSTEM_PROMPT = `את/ה עוזר/ת פיננסי/ת בתוך Plux,
   במקום להניח שזה החודש הקלנדרי הנוכחי.
 - עני/ה בעברית, בקצרה, במספרים קונקרטיים ולא בהערכות מעורפלות.`;
 
+/**
+ * << סעיף 7.4 — prompt caching. SYSTEM_PROMPT קבוע ונשלח *בכל* קריאה
+ *    ל-API, בלי שינוי בין תנועה לתנועה או שיחה לשיחה (אין system
+ *    דינמי בפרויקט הזה בכלל). breakpoint אחד, על הבלוק היחיד, מספיק —
+ *    לא צריך breakpoint נוסף על TOOLS (lib/chat/tools.ts): tools קודם
+ *    ל-system בסדר הבקשה, וקאשינג הוא על ה-prefix המצטבר עד ל-breakpoint
+ *    המסומן, אז breakpoint פה כבר מכסה גם את tools וגם את system יחד —
+ *    כל עוד שניהם זהים בין קריאות (וזה המצב תמיד כאן). TTL לא מוגדר
+ *    בכוונה — ברירת המחדל של ה-API (5 דקות) מספיקה לרצף שאלות בשיחה
+ *    אחת, ולא ראינו סיבה לשלם את הפרמיה של TTL שעה למשתמש יחיד.
+ */
+const SYSTEM_BLOCKS: Array<{
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}> = [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }];
+
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type ChatBlock =
@@ -111,7 +128,7 @@ export type ChatClient = {
     create(params: {
       model: string;
       max_tokens: number;
-      system: string;
+      system: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
       tools: ToolDef[];
       messages: ChatApiMessage[];
     }): Promise<{ content: ChatBlock[]; stop_reason: string | null }>;
@@ -138,7 +155,7 @@ export type StreamChatClient = {
     stream(params: {
       model: string;
       max_tokens: number;
-      system: string;
+      system: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
       tools: ToolDef[];
       messages: ChatApiMessage[];
     }): {
@@ -237,7 +254,7 @@ export async function runChat(
     const response = await client.messages.create({
       model: CHAT_MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_BLOCKS,
       tools: TOOLS,
       messages,
     });
@@ -301,7 +318,7 @@ export async function streamChat(
     const stream = client.messages.stream({
       model: CHAT_MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_BLOCKS,
       tools: TOOLS,
       messages,
     });

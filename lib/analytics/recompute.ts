@@ -190,6 +190,14 @@ export async function recomputeSnapshots(
       update: { facts, computedAt: new Date() },
     });
 
+    // << סיכום AI ישן (lib/chat/summary.ts) מתאר עובדות שהרגע הוחלפו.
+    //    סיכום שמתאר מספרים לא-נכונים גרוע יותר מאשר בלי סיכום בכלל —
+    //    לכן הוא נמחק כאן, באותה נקודה שבה ה-snapshot עצמו נכתב מחדש,
+    //    ולא מושאר לפג מעצמו.
+    await db.monthlySummary.deleteMany({
+      where: { userId, periodStart: period.from, periodEnd: period.to },
+    });
+
     written.push(period.key);
   }
 

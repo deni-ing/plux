@@ -22,11 +22,13 @@ export async function POST(req: Request) {
 
   try {
     const client = await clerkClient();
-    // דקה אחת: מספיק כדי לעבור מיד ל-/accept-token, קצר מספיק שקישור
-    // שדלף/נשמר בהיסטוריה כבר לא תקף.
+    // 5 דקות ולא דקה: בביקור "קר" ראשון (cold start בפרודקשן, טעינת
+    // clerk.js) השרשרת בקשה->redirect->טעינת עמוד->ticket יכולה לחרוג
+    // מדקה אחת בפועל (נצפה בפועל ב-Vercel) - עדיין קצר מספיק שקישור
+    // שדלף/נשמר בהיסטוריה כבר לא תקף אחרי כמה דקות.
     const { token } = await client.signInTokens.createSignInToken({
       userId,
-      expiresInSeconds: 60,
+      expiresInSeconds: 300,
     });
 
     const url = new URL("/accept-token", req.url);

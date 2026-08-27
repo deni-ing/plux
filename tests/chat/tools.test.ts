@@ -152,11 +152,17 @@ function fakeDb(txns: FakeTxn[]): Db {
 }
 
 // אוגוסט 2026 לפי PERIOD_START_DAY=7: 07-08 עד 06-09 כולל.
+// << slugs שטוחים בכוונה, בלי נקודה: breakdownByCategory (lib/analytics/spend.ts)
+//    מקבץ slug מנוקד תחת slug-האב שלו (parentSlug), והשם של קטגוריית-האב
+//    עצמה נלקח מ-`names` (categoryNames) ולא מהתנועה — לא רלוונטי למה
+//    שהטסט הזה בודק (חיווט runTool↔factsFor↔breakdownByCategory), אז
+//    לא כדאי להיתלות גם בעץ הקטגוריות האמיתי וגם בהתנהגות ההורה/ילד.
+//    ההתנהגות המקוננת עצמה כבר מכוסה ב-tests/spend.test.ts.
 const FIXTURE: FakeTxn[] = [
-  txn({ id: "t1", booked: [2026, 8, 10], amount: "-120.50", slug: "food.groceries", name: "מכולת", merchant: "שופרסל" }),
-  txn({ id: "t2", booked: [2026, 8, 20], amount: "-300.00", slug: "transport.fuel", name: "דלק", merchant: "פז" }),
+  txn({ id: "t1", booked: [2026, 8, 10], amount: "-120.50", slug: "groceries", name: "מכולת", merchant: "שופרסל" }),
+  txn({ id: "t2", booked: [2026, 8, 20], amount: "-300.00", slug: "fuel", name: "דלק", merchant: "פז" }),
   txn({ id: "t3", booked: [2026, 8, 25], amount: "-50.00", slug: null, merchant: "לא ידוע" }),
-  txn({ id: "t4", booked: [2026, 7, 15], amount: "-80.00", slug: "food.groceries", name: "מכולת", merchant: "שופרסל" }),
+  txn({ id: "t4", booked: [2026, 7, 15], amount: "-80.00", slug: "groceries", name: "מכולת", merchant: "שופרסל" }),
   // משתמש אחר — לוודא שאף שאילתה לא חוצה גבול משתמשים.
   txn({ id: "other", userId: "user_other", booked: [2026, 8, 10], amount: "-999.00", slug: null }),
 ];
@@ -175,8 +181,8 @@ describe("runTool — getMonthlyReport", () => {
     assert.equal(result.facts.totals.expense, 470.5);
     assert.equal(result.facts.classification.unclassifiedCount, 1);
 
-    const groceries = result.facts.categories.find((c) => c.slug === "food.groceries");
-    assert.ok(groceries, "קטגוריית food.groceries חסרה בתשובה");
+    const groceries = result.facts.categories.find((c) => c.slug === "groceries");
+    assert.ok(groceries, "קטגוריית groceries חסרה בתשובה");
     assert.equal(groceries?.name, "מכולת");
     assert.equal(groceries?.total, 120.5);
   });
@@ -213,7 +219,7 @@ describe("runTool — findTransactions", () => {
   });
 
   it("מסנן לפי קטגוריה", async () => {
-    const result = await runTool(DB, USER, "findTransactions", { category: "food.groceries" });
+    const result = await runTool(DB, USER, "findTransactions", { category: "groceries" });
     assert.equal(result.tool, "findTransactions");
     if (result.tool !== "findTransactions") throw new Error("expected findTransactions");
     assert.equal(result.count, 2);

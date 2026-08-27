@@ -107,7 +107,13 @@ export function PeriodHeader({ facts }: { facts: SnapshotFacts }) {
       {p.partial ? (
         <Notice>
           <b>חודש חלקי.</b> הנתונים מגיעים עד {p.lastDataAt} — {p.daysCovered} מתוך{" "}
-          {p.daysInPeriod} ימים.
+          {p.daysInPeriod} ימים. הטווח שעליו {p.label} מבוסס: {p.from}–{p.to}.
+          {/* << p.from/p.to כבר קיימים מוכנים ב-SnapshotFacts (isoDay, ראו
+              lib/analytics/snapshot.ts) — בלי חישוב תאריכים כאן, בהתאם
+              לכלל של הקובץ הזה ("אין state, אין חישוב"). p.to לא כולל
+              (חלון חצי-פתוח, ראו lib/analytics/period.ts) — למשל אוגוסט
+              הוא 2026-08-07–2026-09-07 מ-26.08 (PERIOD_START_DAY), לא
+              1–1 בחודש הקלנדרי. */}
           {c
             ? c.aligned
               ? // << previousLabel כבר כולל "· N ימים ראשונים" (ראו firstDays

@@ -41,6 +41,16 @@
  *    ייראו זהים אחד לשני.
  * 5. recomputeSnapshots — אותו קריאה שרצה אחרי ייבוא אמיתי, כדי
  *    שהדשבורד יהיה מיידי בלי לחכות לחישוב חי בפעם הראשונה.
+ *
+ * ─── כל התאריכים ביום 7 ומעלה ───
+ *
+ * ‏lib/analytics/period.ts מגדיר PERIOD_START_DAY=7: "אוגוסט" בעיני המנוע
+ * הוא 07-08 עד 06-09, לא הראשון עד האחרון בחודש הקלנדרי. גרסה ראשונה של
+ * הסקריפט הזו קבעה משכורת/שכירות ביום 1 — ונתקלתי בזה בפועל: הריצה
+ * הראשונה הראתה income:0 בדוח "אוגוסט", כי תנועת יום 1 של אוגוסט שייכת
+ * בפועל לתקופה של יולי. לכן כל תאריך כאן (קבועות ומאגר משתנה כאחד) הוא
+ * 7 ומעלה — כולל `utc(y, m, 33)`-מהסוג-הזה, ש-Date.UTC מנרמל אל תוך
+ * החודש הבא בכוונה, בדיוק כמו שהתקופה עצמה עושה.
  */
 
 import "dotenv/config";
@@ -100,8 +110,8 @@ const CULTURE = ["סינמה סיטי", "תיאטרון הבימה"];
 function recurringRows(y: number, m: number): Row[] {
   return [
     {
-      bookedAt: utc(y, m, 1),
-      chargedAt: utc(y, m, 1),
+      bookedAt: utc(y, m, 8),
+      chargedAt: utc(y, m, 8),
       amount: rand(11800, 12200),
       merchant: "מעביד בע\"מ - משכורת",
       slug: "income.salary",
@@ -113,8 +123,8 @@ function recurringRows(y: number, m: number): Row[] {
       account: "bank",
     },
     {
-      bookedAt: utc(y, m, 1),
-      chargedAt: utc(y, m, 1),
+      bookedAt: utc(y, m, 8),
+      chargedAt: utc(y, m, 8),
       amount: -3200,
       merchant: "העברה - שכירות",
       slug: "housing.rent",
@@ -126,8 +136,8 @@ function recurringRows(y: number, m: number): Row[] {
       account: "bank",
     },
     {
-      bookedAt: utc(y, m, 5),
-      chargedAt: utc(y, m, 5),
+      bookedAt: utc(y, m, 12),
+      chargedAt: utc(y, m, 12),
       amount: -rand(260, 340),
       merchant: "חברת חשמל",
       slug: "housing.electricity",
@@ -139,8 +149,8 @@ function recurringRows(y: number, m: number): Row[] {
       account: "bank",
     },
     {
-      bookedAt: utc(y, m, 3),
-      chargedAt: utc(y, m, 3),
+      bookedAt: utc(y, m, 10),
+      chargedAt: utc(y, m, 10),
       amount: -89.9,
       merchant: "פרטנר תקשורת",
       slug: "telecom.mobile",
@@ -178,8 +188,8 @@ function recurringRows(y: number, m: number): Row[] {
       account: "max",
     },
     {
-      bookedAt: utc(y, m, 2),
-      chargedAt: maxBillingDate(utc(y, m, 2)),
+      bookedAt: utc(y, m, 9),
+      chargedAt: maxBillingDate(utc(y, m, 9)),
       amount: -149,
       merchant: "פיטנס פלוס",
       slug: "leisure.sports",
@@ -199,7 +209,7 @@ function variableRows(y: number, m: number): Row[] {
 
   const groceriesCount = Math.floor(rand(4, 6));
   for (let i = 0; i < groceriesCount; i++) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -218,7 +228,7 @@ function variableRows(y: number, m: number): Row[] {
 
   const diningCount = Math.floor(rand(3, 5));
   for (let i = 0; i < diningCount; i++) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -236,7 +246,7 @@ function variableRows(y: number, m: number): Row[] {
   }
 
   for (let i = 0; i < 2; i++) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -254,7 +264,7 @@ function variableRows(y: number, m: number): Row[] {
   }
 
   if (chance(0.7)) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -272,7 +282,7 @@ function variableRows(y: number, m: number): Row[] {
   }
 
   if (chance(0.6)) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -290,7 +300,7 @@ function variableRows(y: number, m: number): Row[] {
   }
 
   if (chance(0.4)) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -310,7 +320,7 @@ function variableRows(y: number, m: number): Row[] {
   // << העברת BIT — כמו בקובץ ייצוא אמיתי: "העברת כספים" היא הקטגוריה
   //    שMAX עצמה מחזירה עבור תנועה כזו, לא סיווג פנימי שלנו.
   if (chance(0.5)) {
-    const day = Math.floor(rand(1, 27));
+    const day = Math.floor(rand(7, 33));
     const booked = utc(y, m, day);
     out.push({
       bookedAt: booked,
@@ -329,8 +339,8 @@ function variableRows(y: number, m: number): Row[] {
 
   // תנועה לא מסווגת אחת לחודש — כדי שגם המסך הזה לא יהיה ריק אצל הדמו.
   out.push({
-    bookedAt: utc(y, m, Math.floor(rand(1, 27))),
-    chargedAt: utc(y, m, Math.floor(rand(1, 27))),
+    bookedAt: utc(y, m, Math.floor(rand(7, 33))),
+    chargedAt: utc(y, m, Math.floor(rand(7, 33))),
     amount: -rand(20, 90),
     merchant: "עסק לא מזוהה",
     slug: null,

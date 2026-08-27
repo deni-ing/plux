@@ -47,6 +47,8 @@ A few decisions worth mentioning to anyone reading the code:
 - **Demo access via Clerk sign-in tokens**, not a shared demo password — a real, first-class Clerk session, generated server-side per visit.
 - **Uploaded bank/card statements are purged after 30 days** by a scheduled job — the parsed transactions stay, but the raw source file (which can contain a full ID number or account number) doesn't get kept indefinitely just in case a parser bug needs re-running against it later.
 
+The full endpoint reference — request/response types read directly from the route handlers, not a separate schema that can drift — lives in [`docs/API.md`](./docs/API.md).
+
 ## Getting started
 
 ```bash

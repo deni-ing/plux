@@ -1,0 +1,99 @@
+<html dir="rtl"><head><meta charset="utf-8"><title>Plux — תיעוד API</title></head><body dir="rtl" style="direction:rtl;text-align:right;font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:24px;line-height:1.7">
+<h1 dir="rtl" id="plux-תיעוד-api" style="direction:rtl;text-align:right">Plux — תיעוד API</h1>
+<p dir="rtl" style="direction:rtl;text-align:right">עדכון אחרון: 27.08.2026 (משימה 9.4)</p>
+<p dir="rtl" style="direction:rtl;text-align:right">חמישה HTTP endpoints בכל הפרויקט (<code>app/api/*/route.ts</code>) — לא הוגדל מלאכותית כדי שיהיה “מה לתעד”. כל טיפוס כאן הוא <strong>טיפוס TypeScript אמיתי מהקוד עצמו</strong>, לא סכמת Zod נפרדת: בפרויקט הזה אין שכבת סכמה נפרדת שיכולה להתפצל מהמימוש בפועל — הבדיקות (<code>isValidHistory</code> וכו’) כתובות ידנית ב-route, וה-request/response types מיוצאים מה-lib הרלוונטי. המסמך הזה נכתב על ידי קריאת ה-route-ים עצמם, לא מתוך תיעוד ישן שיכול לסטות מהמימוש.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">אין <code>middleware.ts</code> בפרויקט — כל route בודק הרשאה בעצמו (החלטה מתועדת ב-<code>docs/plux-explain.md</code>). “מחייב session” למטה פירושו: הקריאה עוברת דרך Clerk (<code>auth()</code>/<code>currentUserId()</code>), ומחזירה <code>401</code> בלי session תקף.</p>
+<hr/>
+<h2 dir="rtl" id="post-apichat" style="direction:rtl;text-align:right"><code>POST /api/chat</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">צ’אט עם Pluxer. <strong>מזרים טקסט</strong> (<code>Content-Type: text/plain</code>) — לא JSON אחד בסוף. שגיאות שידועות מראש (לא מחובר, גוף בקשה לא תקין) חוזרות כ-JSON עם קוד סטטוס רגיל <em>לפני</em> שהזרם נפתח; שגיאה שקורית תוך כדי הזרימה נכתבת כטקסט חופשי <em>לתוך</em> הזרם עצמו, כי אי אפשר יותר לשנות קוד סטטוס אחרי שהוא נפתח.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחייב session.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb1-1"><a aria-hidden="true" href="#cb1-1" tabindex="-1"></a><span class="co">// בקשה</span></span>
+<span id="cb1-2"><a aria-hidden="true" href="#cb1-2" tabindex="-1"></a><span class="kw">type</span> ChatRequest <span class="op">=</span> {</span>
+<span id="cb1-3"><a aria-hidden="true" href="#cb1-3" tabindex="-1"></a>  messages<span class="op">:</span> ChatMessage[]<span class="op">;</span> <span class="co">// 1–40 הודעות</span></span>
+<span id="cb1-4"><a aria-hidden="true" href="#cb1-4" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-5"><a aria-hidden="true" href="#cb1-5" tabindex="-1"></a><span class="kw">type</span> ChatMessage <span class="op">=</span> {</span>
+<span id="cb1-6"><a aria-hidden="true" href="#cb1-6" tabindex="-1"></a>  role<span class="op">:</span> <span class="st">"user"</span> <span class="op">|</span> <span class="st">"assistant"</span><span class="op">;</span></span>
+<span id="cb1-7"><a aria-hidden="true" href="#cb1-7" tabindex="-1"></a>  content<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> <span class="co">// 1–4000 תווים</span></span>
+<span id="cb1-8"><a aria-hidden="true" href="#cb1-8" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-9"><a aria-hidden="true" href="#cb1-9" tabindex="-1"></a></span>
+<span id="cb1-10"><a aria-hidden="true" href="#cb1-10" tabindex="-1"></a><span class="co">// תשובה מוצלחת: 200, גוף מוזרם כטקסט חופשי (לא JSON)</span></span>
+<span id="cb1-11"><a aria-hidden="true" href="#cb1-11" tabindex="-1"></a><span class="co">// Content-Type: text/plain; charset=utf-8</span></span>
+<span id="cb1-12"><a aria-hidden="true" href="#cb1-12" tabindex="-1"></a></span>
+<span id="cb1-13"><a aria-hidden="true" href="#cb1-13" tabindex="-1"></a><span class="co">// שגיאה שנתפסה לפני פתיחת הזרם: JSON רגיל</span></span>
+<span id="cb1-14"><a aria-hidden="true" href="#cb1-14" tabindex="-1"></a><span class="kw">type</span> ChatError <span class="op">=</span> { error<span class="op">:</span> <span class="dt">string</span> }<span class="op">;</span></span>
+<span id="cb1-15"><a aria-hidden="true" href="#cb1-15" tabindex="-1"></a><span class="co">// 401 — לא מחובר</span></span>
+<span id="cb1-16"><a aria-hidden="true" href="#cb1-16" tabindex="-1"></a><span class="co">// 400 — גוף לא JSON תקין / messages לא תקין / יותר מ-40 הודעות</span></span>
+<span id="cb1-17"><a aria-hidden="true" href="#cb1-17" tabindex="-1"></a></span>
+<span id="cb1-18"><a aria-hidden="true" href="#cb1-18" tabindex="-1"></a><span class="co">// שגיאה תוך כדי הזרם: לא קוד סטטוס — הזרם ממשיך עם 200,</span></span>
+<span id="cb1-19"><a aria-hidden="true" href="#cb1-19" tabindex="-1"></a><span class="co">// והטקסט "\n\n[השירות לא זמין כרגע. נסה שוב בעוד רגע.]" מצורף לתוכו.</span></span></code></pre></div>
+<h2 dir="rtl" id="post-apiimports" style="direction:rtl;text-align:right"><code>POST /api/imports</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">קליטת דוח בנק/אשראי (<code>multipart/form-data</code>) — פענוח, שמירת הקובץ הגולמי, וכתיבת התנועות תחת בידוד משתמש. תומך בכמה קבצים בבקשה אחת; כל קובץ מטופל בנפרד ומדווח בנפרד (קובץ אחד יכול להיכשל בלי שהאחרים ייכשלו).</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחייב session. גודל קובץ מקסימלי: 10MB.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb2-1"><a aria-hidden="true" href="#cb2-1" tabindex="-1"></a><span class="co">// בקשה: multipart/form-data, שדה "files" — קובץ אחד או יותר</span></span>
+<span id="cb2-2"><a aria-hidden="true" href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a aria-hidden="true" href="#cb2-3" tabindex="-1"></a><span class="co">// תשובה: 200 תמיד (הצלחה/כישלון מדווחים per-file בתוך results)</span></span>
+<span id="cb2-4"><a aria-hidden="true" href="#cb2-4" tabindex="-1"></a><span class="kw">type</span> ImportsResponse <span class="op">=</span> { results<span class="op">:</span> ImportResult[] }<span class="op">;</span></span>
+<span id="cb2-5"><a aria-hidden="true" href="#cb2-5" tabindex="-1"></a></span>
+<span id="cb2-6"><a aria-hidden="true" href="#cb2-6" tabindex="-1"></a><span class="kw">type</span> ImportResult <span class="op">=</span></span>
+<span id="cb2-7"><a aria-hidden="true" href="#cb2-7" tabindex="-1"></a>  <span class="op">|</span> {</span>
+<span id="cb2-8"><a aria-hidden="true" href="#cb2-8" tabindex="-1"></a>      file<span class="op">:</span> <span class="dt">string</span><span class="op">;</span></span>
+<span id="cb2-9"><a aria-hidden="true" href="#cb2-9" tabindex="-1"></a>      ok<span class="op">:</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-10"><a aria-hidden="true" href="#cb2-10" tabindex="-1"></a>      provider<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> <span class="co">// "max" | "leumi" | ... — ראו lib/parsers</span></span>
+<span id="cb2-11"><a aria-hidden="true" href="#cb2-11" tabindex="-1"></a>      account<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> <span class="co">// תווית תצוגה, למשל "max בהצדעה"</span></span>
+<span id="cb2-12"><a aria-hidden="true" href="#cb2-12" tabindex="-1"></a>      period<span class="op">:</span> <span class="dt">string</span> <span class="op">|</span> <span class="dt">null</span><span class="op">;</span> <span class="co">// תקופת הדוח כפי שזוהתה מהקובץ</span></span>
+<span id="cb2-13"><a aria-hidden="true" href="#cb2-13" tabindex="-1"></a>      importJobId<span class="op">:</span> <span class="dt">string</span><span class="op">;</span></span>
+<span id="cb2-14"><a aria-hidden="true" href="#cb2-14" tabindex="-1"></a>      accountId<span class="op">:</span> <span class="dt">string</span><span class="op">;</span></span>
+<span id="cb2-15"><a aria-hidden="true" href="#cb2-15" tabindex="-1"></a>      rowsParsed<span class="op">:</span> <span class="dt">number</span><span class="op">;</span></span>
+<span id="cb2-16"><a aria-hidden="true" href="#cb2-16" tabindex="-1"></a>      rowsInserted<span class="op">:</span> <span class="dt">number</span><span class="op">;</span></span>
+<span id="cb2-17"><a aria-hidden="true" href="#cb2-17" tabindex="-1"></a>      rowsDuplicate<span class="op">:</span> <span class="dt">number</span><span class="op">;</span></span>
+<span id="cb2-18"><a aria-hidden="true" href="#cb2-18" tabindex="-1"></a>      reconciled<span class="op">:</span> <span class="dt">boolean</span><span class="op">;</span></span>
+<span id="cb2-19"><a aria-hidden="true" href="#cb2-19" tabindex="-1"></a>      classified<span class="op">?:</span> <span class="dt">number</span><span class="op">;</span> <span class="co">// כמה תנועות סווגו אוטומטית בעקבות הייבוא</span></span>
+<span id="cb2-20"><a aria-hidden="true" href="#cb2-20" tabindex="-1"></a>      warnings<span class="op">:</span> <span class="dt">string</span>[]<span class="op">;</span></span>
+<span id="cb2-21"><a aria-hidden="true" href="#cb2-21" tabindex="-1"></a>      checks<span class="op">:</span> Check[]<span class="op">;</span> <span class="co">// בדיקות עקביות (למשל סכום דוח מול סכום תנועות)</span></span>
+<span id="cb2-22"><a aria-hidden="true" href="#cb2-22" tabindex="-1"></a>    }</span>
+<span id="cb2-23"><a aria-hidden="true" href="#cb2-23" tabindex="-1"></a>  <span class="op">|</span> { file<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> ok<span class="op">:</span> <span class="kw">false</span><span class="op">;</span> error<span class="op">:</span> <span class="dt">string</span> }<span class="op">;</span></span>
+<span id="cb2-24"><a aria-hidden="true" href="#cb2-24" tabindex="-1"></a></span>
+<span id="cb2-25"><a aria-hidden="true" href="#cb2-25" tabindex="-1"></a><span class="kw">type</span> Check <span class="op">=</span> { label<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> expected<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> actual<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> ok<span class="op">:</span> <span class="dt">boolean</span> }<span class="op">;</span></span>
+<span id="cb2-26"><a aria-hidden="true" href="#cb2-26" tabindex="-1"></a></span>
+<span id="cb2-27"><a aria-hidden="true" href="#cb2-27" tabindex="-1"></a><span class="co">// שגיאות ברמת כל הבקשה (לא per-file):</span></span>
+<span id="cb2-28"><a aria-hidden="true" href="#cb2-28" tabindex="-1"></a><span class="co">// 401 — לא מחובר</span></span>
+<span id="cb2-29"><a aria-hidden="true" href="#cb2-29" tabindex="-1"></a><span class="co">// 400 — לא multipart/form-data, או "files" ריק</span></span>
+<span id="cb2-30"><a aria-hidden="true" href="#cb2-30" tabindex="-1"></a><span class="co">// 503 — סנכרון המשתמש מול Clerk נכשל (תשתית) — שום קובץ לא נקלט</span></span></code></pre></div>
+<h2 dir="rtl" id="get-apisummary" style="direction:rtl;text-align:right"><code>GET /api/summary</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">הסיכום החודשי שכותב Pluxer (טקסט חופשי, לא נתונים מובנים) — עם קאש: נכתב פעם אחת לכל תקופה ב-<code>MonthlySummary</code>, לא מחדש בכל בקשה.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">מחייב session.</p>
+<pre dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code>GET /api/summary?month=YYYY-MM   // month אופציונלי — בלי זה, התקופה האחרונה עם נתונים</code></pre>
+<div class="sourceCode" id="cb4"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb4-1"><a aria-hidden="true" href="#cb4-1" tabindex="-1"></a><span class="co">// תשובה מוצלחת: 200</span></span>
+<span id="cb4-2"><a aria-hidden="true" href="#cb4-2" tabindex="-1"></a><span class="kw">type</span> SummaryResponse <span class="op">=</span> { summary<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> month<span class="op">:</span> <span class="dt">string</span> }<span class="op">;</span> <span class="co">// month בפורמט YYYY-MM</span></span>
+<span id="cb4-3"><a aria-hidden="true" href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a aria-hidden="true" href="#cb4-4" tabindex="-1"></a><span class="co">// שגיאה: 401 / 404 / 502</span></span>
+<span id="cb4-5"><a aria-hidden="true" href="#cb4-5" tabindex="-1"></a><span class="kw">type</span> SummaryError <span class="op">=</span> { error<span class="op">:</span> <span class="dt">string</span> }<span class="op">;</span></span>
+<span id="cb4-6"><a aria-hidden="true" href="#cb4-6" tabindex="-1"></a><span class="co">// 401 — לא מחובר</span></span>
+<span id="cb4-7"><a aria-hidden="true" href="#cb4-7" tabindex="-1"></a><span class="co">// 404 — אין עדיין נתונים בכלל, או אין נתונים לחודש המבוקש</span></span>
+<span id="cb4-8"><a aria-hidden="true" href="#cb4-8" tabindex="-1"></a><span class="co">// 502 — קריאה ל-Claude נכשלה (השירות לא זמין)</span></span></code></pre></div>
+<h2 dir="rtl" id="post-apidemo-login" style="direction:rtl;text-align:right"><code>POST /api/demo-login</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">מייצר sign-in token חד-פעמי אצל Clerk למשתמש הדמו ומפנה להשלמת הכניסה. <strong>לא endpoint לשימוש כללי</strong> — קיים אך ורק בשביל כפתור “היכנס כדמו” בדף הבית, ותלוי במשתנה הסביבה <code>DEMO_USER_ID</code>. תמיד <code>POST</code> (לא <code>GET</code>) בכוונה: לא רוצים שניווט/prefetch/בוט יפעילו יצירת token בטעות.</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לא מחייב session (זו נקודת הכניסה עצמה).</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb5-1"><a aria-hidden="true" href="#cb5-1" tabindex="-1"></a><span class="co">// אין גוף בקשה נדרש.</span></span>
+<span id="cb5-2"><a aria-hidden="true" href="#cb5-2" tabindex="-1"></a></span>
+<span id="cb5-3"><a aria-hidden="true" href="#cb5-3" tabindex="-1"></a><span class="co">// תשובה: תמיד 303 redirect, אף פעם לא JSON.</span></span>
+<span id="cb5-4"><a aria-hidden="true" href="#cb5-4" tabindex="-1"></a><span class="co">// הצלחה  → Location: /accept-token?token=&lt;חד-פעמי, בתוקף 5 דקות&gt;</span></span>
+<span id="cb5-5"><a aria-hidden="true" href="#cb5-5" tabindex="-1"></a><span class="co">// כישלון → Location: /  (DEMO_USER_ID לא מוגדר, או שגיאת Clerk — נרשם ל-console בצד השרת)</span></span></code></pre></div>
+<h2 dir="rtl" id="get-apicronpurge-statements" style="direction:rtl;text-align:right"><code>GET /api/cron/purge-statements</code></h2>
+<p dir="rtl" style="direction:rtl;text-align:right">משימה מתוזמנת (Vercel Cron, יומי — ראו <code>vercel.json</code>) שמוחקת קבצי דוח גולמיים בני יותר מ-30 יום מהאחסון. <strong>התנועות המפוענחות לא נמחקות</strong> — רק הקובץ המקורי (שיכול להכיל מספר תעודת זהות/חשבון מלא).</p>
+<p dir="rtl" style="direction:rtl;text-align:right">לא מחייב session — מחייב header ייעודי במקום:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode ts" dir="ltr" style="direction:ltr;text-align:left;background:#f4f4f4;padding:10px;overflow-x:auto"><code class="sourceCode typescript"><span id="cb6-1"><a aria-hidden="true" href="#cb6-1" tabindex="-1"></a><span class="co">// Header נדרש: Authorization: Bearer &lt;CRON_SECRET&gt;</span></span>
+<span id="cb6-2"><a aria-hidden="true" href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a aria-hidden="true" href="#cb6-3" tabindex="-1"></a><span class="co">// תשובה מוצלחת: 200</span></span>
+<span id="cb6-4"><a aria-hidden="true" href="#cb6-4" tabindex="-1"></a><span class="kw">type</span> PurgeResponse <span class="op">=</span> {</span>
+<span id="cb6-5"><a aria-hidden="true" href="#cb6-5" tabindex="-1"></a>  cutoff<span class="op">:</span> <span class="dt">string</span><span class="op">;</span> <span class="co">// ISO date — כל job שהתחיל לפני זה הוא מועמד</span></span>
+<span id="cb6-6"><a aria-hidden="true" href="#cb6-6" tabindex="-1"></a>  candidates<span class="op">:</span> <span class="dt">number</span><span class="op">;</span> <span class="co">// כמה נמצאו</span></span>
+<span id="cb6-7"><a aria-hidden="true" href="#cb6-7" tabindex="-1"></a>  removed<span class="op">:</span> <span class="dt">number</span><span class="op">;</span> <span class="co">// כמה נמחקו בהצלחה</span></span>
+<span id="cb6-8"><a aria-hidden="true" href="#cb6-8" tabindex="-1"></a>  failed<span class="op">:</span> <span class="dt">number</span><span class="op">;</span> <span class="co">// כמה נכשלו (יתפסו שוב בהרצה הבאה)</span></span>
+<span id="cb6-9"><a aria-hidden="true" href="#cb6-9" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb6-10"><a aria-hidden="true" href="#cb6-10" tabindex="-1"></a></span>
+<span id="cb6-11"><a aria-hidden="true" href="#cb6-11" tabindex="-1"></a><span class="co">// שגיאה:</span></span>
+<span id="cb6-12"><a aria-hidden="true" href="#cb6-12" tabindex="-1"></a><span class="co">// 500 — CRON_SECRET לא מוגדר בסביבה (תקלת קונפיגורציה, לא קלט)</span></span>
+<span id="cb6-13"><a aria-hidden="true" href="#cb6-13" tabindex="-1"></a><span class="co">// 401 — ה-header לא תואם</span></span></code></pre></div>
+
+</body></html>

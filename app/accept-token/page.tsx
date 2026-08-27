@@ -11,21 +11,28 @@
  * << signIn.ticket ולא signIn.create({strategy:"ticket"}): הפרויקט על
  *    Clerk "Core 3" (ראו ההערה על <Show> ב-app/layout.tsx), וזו הצורה
  *    העדכנית של אותו ה-API.
+ *
+ * << useAuth().isLoaded ולא רק "signIn קיים": useSignIn() בגרסת ה-API
+ *    הזו (SignInSignalValue - מבוסס signals) לא חושף isLoaded בכלל,
+ *    ה-signIn שהוא מחזיר "קיים" תמיד - אבל הפעולות עליו עדיין תלויות
+ *    בכך ש-Clerk סיים לטעון בפועל. בלי החכייה הזו נצפה בפועל בפרודקשן:
+ *    בביקור ראשון "קישור פג תוקף", ואחרי רענון (Clerk כבר טעון) אותו
+ *    token בדיוק עובד - סימן שהבעיה בתזמון, לא בתוקף ה-token.
  */
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSignIn, useUser } from "@clerk/nextjs";
+import { useAuth, useSignIn } from "@clerk/nextjs";
 
 export default function AcceptTokenPage() {
   const [error, setError] = useState<string | null>(null);
   const { signIn } = useSignIn();
-  const { isSignedIn } = useUser();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const token = useSearchParams().get("token");
 
   useEffect(() => {
-    if (!token || !signIn || isSignedIn) return;
+    if (!authLoaded || !token || !signIn || isSignedIn) return;
 
     let cancelled = false;
 
@@ -55,7 +62,7 @@ export default function AcceptTokenPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, signIn, isSignedIn, router]);
+  }, [authLoaded, token, signIn, isSignedIn, router]);
 
   useEffect(() => {
     if (isSignedIn) router.push("/");

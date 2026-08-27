@@ -72,6 +72,17 @@ export default async function Home() {
           דוחות הבנק והאשראי שלך, מפוענחים ומסווגים — בלי לחבר את החשבון לאף אחד.
         </p>
         <p className="mt-6 text-sm text-muted">התחבר כדי להתחיל.</p>
+        {/* << לא קישור: POST ל-/api/demo-login שיוצר sign-in token
+            חד-פעמי אצל Clerk ומפנה ל-/accept-token להשלמת הכניסה. ראו
+            ההערה שם — למה זו כניסה אמיתית ולא עקיפה של Clerk. */}
+        <form action="/api/demo-login" method="post" className="mt-3">
+          <button
+            type="submit"
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-ink-2 hover:bg-wash hover:text-ink"
+          >
+            היכנס כדמו
+          </button>
+        </form>
       </main>
     );
   }

@@ -69,10 +69,11 @@ export default async function DashboardPage({
     const period = parseMonthKey(month) ?? (await latestPeriod(db, userId));
     if (!period) return null;
 
-    const [result, months] = await Promise.all([
-      factsFor(db, userId, period),
-      availableMonths(db, userId),
-    ]);
+    // << לא Promise.all — אותה סיבה כמו ב-app/page.tsx: שתי הקריאות חולקות
+    //    את חיבור הטרנזקציה היחיד של withUser, אז "מקביליות" הייתה אשליה
+    //    ו-pg מזהיר על התבנית הזו (client.query() לפני שהקודם הסתיים).
+    const result = await factsFor(db, userId, period);
+    const months = await availableMonths(db, userId);
     const budgets = result?.facts ? await listBudgets(db, userId, result.facts) : [];
     return { period, result, months, budgets };
   });

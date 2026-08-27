@@ -83,15 +83,18 @@ export default async function Home() {
   const data = await withCurrentUser(async (db) => {
     const period = await latestPeriod(db, userId);
     if (!period) return null;
-    const [result, pending, balance, upcoming, goals, net, recommendations] = await Promise.all([
-      factsFor(db, userId, period),
-      pendingByMerchant(db, userId, 100),
-      bankBalance(db, userId, asOf),
-      upcomingCharges(db, userId, asOf),
-      listGoals(db, userId),
-      avgMonthlyNet(db, userId),
-      loadRecommendations(db, userId),
-    ]);
+    // << לא Promise.all: כל הקריאות כאן חולקות אותו חיבור יחיד (הטרנזקציה
+    //    של withUser, ראו lib/db/client.ts) — "מקביליות" כאן הייתה אשליה
+    //    בלבד, pg ריצף אותן בכל מקרה על אותו client, וזו בדיוק התבנית
+    //    שמסומנת כ-deprecated ב-pg (client.query() נוסף לפני שהקודם הסתיים,
+    //    ראו אזהרת הקונסולה). await ברצף לא מאבד ביצועים בפועל.
+    const result = await factsFor(db, userId, period);
+    const pending = await pendingByMerchant(db, userId, 100);
+    const balance = await bankBalance(db, userId, asOf);
+    const upcoming = await upcomingCharges(db, userId, asOf);
+    const goals = await listGoals(db, userId);
+    const net = await avgMonthlyNet(db, userId);
+    const recommendations = await loadRecommendations(db, userId);
     return { period, facts: result?.facts ?? null, pending, balance, upcoming, goals, net, recommendations };
   });
 
